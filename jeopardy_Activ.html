@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jeopardy — Ciencia y método científico</title>
+<style>
+  :root{
+    --navy:#03004c;
+    --red:#fc223b;
+    --yellow:#fec009;
+    --green:#56b12e;
+    --blue:#3894df;
+    --wine:#5b171b;
+    --white:#fff;
+    --black:#111;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    min-height:100vh;
+    font-family:Arial, Helvetica, sans-serif;
+    background:var(--navy);
+    color:var(--black);
+  }
+  button,input{font:inherit}
+  button{cursor:pointer}
+  .screen{
+    min-height:100vh;
+    background:#fff;
+    display:none;
+    padding:20px;
+    position:relative;
+  }
+  .screen.active{display:flex}
+  .center-screen{
+    align-items:center;
+    justify-content:center;
+  }
+  .intro-img{
+    width:min(90vw,900px);
+    max-height:78vh;
+    object-fit:contain;
+  }
+  .main-btn{
+    background:var(--navy);
+    color:#fff;
+    border:0;
+    border-radius:8px;
+    padding:13px 28px;
+    font-weight:800;
+    box-shadow:0 2px 4px #999;
+  }
+  .main-btn:hover{transform:translateY(-1px)}
+  .intro-wrap{
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:18px;
+  }
+
+  /* Registro */
+  .register-wrap{
+    width:min(1100px,96vw);
+    margin:auto;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:25px;
+    align-items:center;
+  }
+  .register-logo{width:100%;max-width:470px;justify-self:center}
+  .players-form{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+  .player-input{
+    width:100%;
+    border:2px solid var(--navy);
+    border-radius:7px;
+    padding:11px 14px;
+    color:var(--black);
+    outline:none;
+  }
+  .player-input:focus{box-shadow:0 0 0 3px #ddd}
+  .register-actions{text-align:center;margin-top:8px}
+  .error{color:var(--red);font-weight:700;min-height:20px}
+
+  /* Modo de juego (Registro) */
+  .mode-section{text-align:center;margin-bottom:14px}
+  .mode-title{font-weight:800;color:var(--navy);margin-bottom:10px}
+  .mode-options{display:flex;gap:12px;justify-content:center}
+  .mode-btn{
+    background:var(--navy);
+    color:#fff;
+    border:3px solid var(--navy);
+    border-radius:8px;
+    padding:10px 22px;
+    font-weight:800;
+    box-shadow:0 2px 4px #999;
+  }
+  .mode-btn.selected{
+    border-color:var(--yellow);
+    box-shadow:0 0 0 3px var(--yellow);
+  }
+  .mode-btn small{
+    display:block;
+    font-weight:600;
+    opacity:.85;
+    font-size:.7em;
+    margin-top:2px;
+  }
+
+  /* Selección manual de jugador en el tablero */
+  .player-card.selectable{cursor:pointer}
+  .player-card.selectable:hover{transform:translateY(-1px)}
+  .player-card.manual-selected{outline:3px solid var(--yellow)}
+  .manual-hint{
+    text-align:center;
+    font-weight:700;
+    color:var(--red);
+    margin:4px 0 8px;
+  }
+
+  .mute-btn{
+    position:fixed;
+    top:12px;
+    right:12px;
+    z-index:999;
+    background:var(--navy);
+    color:#fff;
+    border:2px solid #fff;
+    border-radius:50%;
+    width:42px;
+    height:42px;
+    font-size:18px;
+    box-shadow:0 2px 6px rgba(0,0,0,.35);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+  }
+
+  /* Ronda: pantalla en blanco "¿LISTOS?" y pantalla de memorización */
+  #readyScreen,#memoryScreen{background:#fff}
+  .ready-wrap{
+    display:flex;flex-direction:column;align-items:center;gap:22px;
+    max-width:min(640px,92vw);text-align:center;
+  }
+  .ready-btn{font-size:28px;padding:20px 64px;border-radius:12px}
+  .ready-text{margin:0;font-size:17px;font-weight:700;color:var(--navy);line-height:1.45}
+  .memory-wrap{
+    width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;
+  }
+  .memory-img{
+    max-width:96vw;max-height:calc(100vh - 110px);object-fit:contain;
+  }
+  .memory-timer{
+    background:var(--yellow);color:#111;border-radius:8px;
+    min-width:105px;padding:8px 14px;text-align:center;font-weight:900;font-size:20px;
+  }
+
+  /* Tablero */
+  #boardScreen{padding:24px 2vw;align-items:flex-start;justify-content:center}
+  .board-wrap{width:min(1100px,98vw)}
+  .board-top{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding-bottom:12px;
+  }
+  .player-card{
+    min-width:145px;
+    border:2px solid var(--yellow);
+    border-radius:7px;
+    background:#fff;
+    text-align:center;
+    padding:7px 8px;
+    transition:.2s;
+  }
+  .player-card.current{
+    background:#fff4b8;
+    border-color:var(--red);
+    box-shadow:0 0 0 3px #ffd6da;
+  }
+  .player-name{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .score{font-size:18px;font-weight:900;margin-top:4px}
+  .joker-count{font-size:12px;font-weight:700;color:#444;margin-top:3px;white-space:nowrap}
+  .round-info{
+    text-align:center;
+    font-weight:900;
+    color:var(--navy);
+    margin:4px 0 14px;
+  }
+  .board{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:12px;
+  }
+  .category{
+    background:var(--navy);
+    color:#fff;
+    border-radius:7px;
+    min-height:72px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:8px 10px;
+    font-size:16px;
+    line-height:1.25;
+    font-weight:900;
+  }
+  .cell{
+    min-height:84px;
+    border:0;
+    border-radius:7px;
+    background:var(--navy);
+    color:#fff;
+    font-weight:900;
+    font-size:26px;
+  }
+  .cell:hover:not(:disabled){filter:brightness(1.25);transform:scale(1.02)}
+  .cell.used{
+    background:#ddd;
+    color:#777;
+    cursor:not-allowed;
+    text-decoration:line-through;
+  }
+  .board-help{
+    margin-top:15px;
+    text-align:center;
+    font-size:14px;
+    font-weight:700;
+  }
+
+  /* Pregunta */
+  #questionScreen{align-items:center;justify-content:center}
+  .question-layout{
+    width:min(1100px,96vw);
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:34px;
+    align-items:center;
+  }
+  .side-panel{
+    background:var(--wine);
+    color:#fff;
+    border-radius:12px;
+    padding:22px;
+    min-height:300px;
+  }
+  .side-title{text-align:center;font-size:18px;font-weight:900}
+  .current-player{
+    text-align:center;font-size:23px;font-weight:900;margin:18px 0;
+  }
+  .joker-list{display:flex;flex-direction:column;gap:9px}
+  .joker{
+    border:0;border-radius:7px;padding:11px 8px;font-weight:800;
+    background:#fff;color:#111;
+  }
+  .joker:disabled{opacity:.45;cursor:not-allowed}
+  .question-panel{
+    background:var(--wine);
+    color:#fff;
+    border-radius:12px;
+    padding:22px;
+    min-height:400px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .time-row{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    margin-bottom:12px;
+  }
+  .time-img{height:46px;max-width:180px;object-fit:contain}
+  .timer{
+    background:var(--yellow);color:#111;border-radius:8px;
+    min-width:105px;padding:10px 14px;text-align:center;font-weight:900;font-size:20px;
+  }
+  .question-title{font-size:16px;font-weight:900;margin:7px 0}
+  .question-text{
+    background:#fff;color:#111;border-radius:8px;padding:18px;
+    width:100%;min-height:110px;display:flex;align-items:center;justify-content:center;
+    text-align:center;font-size:20px;font-weight:800;
+    margin-bottom:14px;
+  }
+  .options{width:100%;display:grid;gap:10px}
+  .option{
+    border:0;border-radius:7px;padding:13px 14px;font-weight:900;color:#111;text-align:left;line-height:1.3;
+  }
+  .option.a{background:var(--red)}
+  .option.b{background:var(--yellow)}
+  .option.c{background:var(--green)}
+  .option.d{background:var(--blue)}
+  .option:disabled{opacity:.45;cursor:not-allowed}
+  .status{min-height:32px;margin-top:12px;text-align:center;font-weight:900}
+
+  /* Modales */
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(3,0,76,.72);
+    display:none;align-items:center;justify-content:center;
+    z-index:50;padding:20px;
+  }
+  .modal-backdrop.show{display:flex}
+  .modal{
+    width:min(600px,94vw);
+    background:var(--navy);
+    border-radius:14px;
+    padding:22px;
+    color:#fff;
+    text-align:center;
+  }
+  .modal h2{margin:0 0 16px}
+  .modal .msg{
+    background:#fff;color:#111;border-radius:8px;padding:15px;margin-bottom:16px;
+    font-weight:800;
+  }
+  .correct-label{background:var(--green);color:#111;border-radius:7px;padding:12px;font-weight:900}
+  .incorrect-label{background:var(--red);color:#111;border-radius:7px;padding:12px;font-weight:900}
+  .modal .answer{background:#fff;color:#111;border-radius:7px;padding:12px;margin:12px 0;font-weight:900}
+
+  .steal-list{display:grid;gap:8px;margin:12px 0}
+  .steal-btn{
+    background:#fff;color:#111;border:0;border-radius:7px;padding:10px;font-weight:800;
+  }
+  .steal-btn:disabled{opacity:.45}
+  .steal-note{font-size:13px;margin-bottom:10px}
+
+  /* Podio */
+  #podiumScreen{align-items:center;justify-content:center}
+  .podium-wrap{
+    width:min(900px,95vw);
+    display:flex;flex-direction:column;align-items:center;
+  }
+  .podium-img{width:min(700px,90vw);max-height:42vh;object-fit:contain}
+  .podium-title{font-size:26px;font-weight:900;color:var(--navy);margin:6px 0 18px}
+  .podium{
+    width:min(760px,94vw);
+    display:flex;align-items:flex-end;justify-content:center;gap:5px;
+    margin:8px 0 25px;
+  }
+  .place{
+    width:30%;display:flex;flex-direction:column;align-items:center;
+  }
+  .place-name{
+    background:var(--navy);color:#fff;border-radius:7px;padding:9px;
+    width:100%;text-align:center;font-weight:900;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .block{width:100%;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:900}
+  .first .block{height:150px;background:var(--yellow)}
+  .second .block{height:115px;background:var(--green)}
+  .third .block{height:80px;background:var(--red)}
+  .final-score{font-size:14px;margin-top:4px}
+  .small-note{font-size:12px;text-align:center;color:#444;max-width:700px;margin-top:4px}
+
+  @media(max-width:800px){
+    .register-wrap,.question-layout{grid-template-columns:1fr}
+    .register-logo{max-width:330px}
+    .board{grid-template-columns:repeat(4,minmax(130px,1fr));overflow-x:auto}
+    #boardScreen{overflow-x:auto}
+    .board-wrap{min-width:600px}
+  }
+</style>
+</head>
+<body>
+<button id="muteBtn" class="mute-btn" data-muted="0" onclick="toggleMute()" title="Silenciar/Activar sonido">🔊</button>
+
+<!-- 1. INICIO -->
+<section id="startScreen" class="screen active center-screen">
+  <div class="intro-wrap">
+    <img class="intro-img" src="https://cdn.jsdelivr.net/gh/TheGuppy-blip/Distribucion@b4a5a5e0513967c698000284c0228eb047e27a43/imagenes/Incv.png" alt="Jeopardy">
+    <button class="main-btn" onclick="goToRegister()">¡Comenzar!</button>
+  </div>
+</section>
+
+<!-- 2. REGISTRO -->
+<section id="registerScreen" class="screen center-screen">
+  <div class="register-wrap">
+    <img class="register-logo" src="https://cdn.jsdelivr.net/gh/TheGuppy-blip/Distribucion@eddae1f19715bc2ecbb2ba624fb50623dc52482e/imagenes/Registro.png" alt="Registro">
+    <div>
+      <div class="mode-section">
+        <div class="mode-title">Modo de juego</div>
+        <div class="mode-options">
+          <button id="modeOrdenBtn" class="mode-btn selected" onclick="setTurnMode('orden')">Orden</button>
+          <button id="modeManualBtn" class="mode-btn" onclick="setTurnMode('manual')">Manual</button>
+        </div>
+      </div>
+
+      <div id="playersForm" class="players-form"></div>
+      <div id="registerError" class="error"></div>
+      <div class="register-actions">
+        <button class="main-btn" onclick="savePlayers()">Continuar</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2.5 RONDA: ¿LISTOS? -->
+<section id="readyScreen" class="screen center-screen">
+  <div class="ready-wrap">
+    <button class="main-btn ready-btn" onclick="startMemory()">¿LISTOS?</button>
+    <p class="ready-text">Memoriza la mayor cantidad de figuras, durante este tiempo no puedes hablar con los miembros de tu equipo</p>
+  </div>
+</section>
+
+<!-- 2.6 RONDA: MEMORIZAR IMAGEN -->
+<section id="memoryScreen" class="screen center-screen">
+  <div class="memory-wrap">
+    <div id="memoryTimer" class="memory-timer">00:25</div>
+    <img id="memoryImg" class="memory-img" src="" alt="Figuras para memorizar">
+  </div>
+</section>
+
+<!-- 3. TABLERO -->
+<section id="boardScreen" class="screen">
+  <div class="board-wrap">
+    <div id="playerCards" class="board-top"></div>
+    <div id="roundInfo" class="round-info"></div>
+    <div id="board" class="board"></div>
+    <div class="board-help">
+      Selecciona una casilla disponible.
+    </div>
+  </div>
+</section>
+
+<!-- 4. PREGUNTA -->
+<section id="questionScreen" class="screen">
+  <div class="question-layout">
+    <div class="side-panel">
+      <div id="sideTitle" class="side-title">Jugador en turno</div>
+      <div id="questionPlayer" class="current-player"></div>
+      <div style="text-align:center;font-weight:800;margin-bottom:10px">Comodines disponibles</div>
+      <div class="joker-list">
+        <button id="jokerExtra" class="joker" onclick="useJoker('extra')">⏱️ +10 segundos (2)</button>
+        <button id="jokerPublic" class="joker" onclick="useJoker('public')">📣 Ayuda del público (2)</button>
+      </div>
+      <div id="jokerMessage" style="margin-top:12px;text-align:center;font-size:13px;font-weight:800"></div>
+    </div>
+
+    <div class="question-panel">
+      <div class="time-row">
+        <img class="time-img" src="https://cdn.jsdelivr.net/gh/TheGuppy-blip/Distribucion@eddae1f19715bc2ecbb2ba624fb50623dc52482e/imagenes/Tiempo.png" alt="Tiempo">
+        <div id="timer" class="timer">00:25</div>
+      </div>
+      <div id="questionCategory" class="question-title"></div>
+      <div id="questionValue" class="question-title"></div>
+      <div id="questionText" class="question-text"></div>
+      <div id="options" class="options"></div>
+      <div id="questionStatus" class="status"></div>
+    </div>
+  </div>
+</section>
+
+<!-- MODAL DE RESULTADO -->
+<div id="resultModal" class="modal-backdrop">
+  <div class="modal">
+    <div id="resultLabel"></div>
+    <div id="resultMsg" class="msg"></div>
+    <div id="resultAnswer" class="answer" style="display:none"></div>
+    <button class="main-btn" onclick="continueAfterResult()">Continuar</button>
+  </div>
+</div>
+
+<!-- MODAL ROBO -->
+<div id="stealModal" class="modal-backdrop">
+  <div class="modal">
+    <h2>¡Robo de puntos!</h2>
+    <img src="https://cdn.jsdelivr.net/gh/TheGuppy-blip/Distribucion@eddae1f19715bc2ecbb2ba624fb50623dc52482e/imagenes/Robo.png"
+         alt="¡Oh no!" style="width:min(330px,80vw);max-height:130px;object-fit:contain">
+    <div class="msg">La respuesta fue incorrecta o se terminó el tiempo.</div>
+    <div id="stealNote" class="steal-note">Elige a otro participante para intentar responder la misma pregunta.</div>
+    <div id="stealList" class="steal-list"></div>
+  </div>
+</div>
+
+<!-- 5. PODIO -->
+<section id="podiumScreen" class="screen">
+  <div class="podium-wrap">
+    <img class="podium-img" src="https://cdn.jsdelivr.net/gh/TheGuppy-blip/Distribucion@b4a5a5e0513967c698000284c0228eb047e27a43/imagenes/Incv.png" alt="Jeopardy">
+    <div class="podium-title">Resultados finales</div>
+    <div id="podium" class="podium"></div>
+    <button class="main-btn" onclick="restartGame()">Volver a jugar</button>
+    <div id="podiumNote" class="small-note">Solo se muestra el top 3. Los empates se resuelven por el orden de puntuación en el momento de terminar.</div>
+  </div>
+</section>
+
+<script>
+/*
+  JEOPARDY — SPA
+  Configuración: 4 categorías × 4 niveles (100 a 400) = 16 preguntas · 4 participantes.
+  Tiempo por pregunta: 25 s · Comodines por participante: 2 de +10 s y 2 de ayuda del público.
+  Todas las preguntas están en QUESTION_BANK. Cada una lleva: q (pregunta), o (4 opciones)
+  y a (índice de la respuesta correcta: 0 = A, 1 = B, 2 = C, 3 = D).
+*/
+
+const categories = [
+  "Ciencia vs. sentido común",
+  "Métodos y concepciones de la ciencia",
+  "Teoría e investigación científica",
+  "El enfoque científico"
+];
+
+const values = [100, 200, 300, 400];
+
+const PLAYER_COUNT     = 4;
+const QUESTION_SECONDS = 25;   // tiempo para responder cada pregunta
+const STEAL_SECONDS    = 15;   // tiempo del participante que intenta el robo
+const EXTRA_SECONDS    = 10;   // segundos que suma el comodín de tiempo extra
+const JOKERS_PER_TYPE  = 2;    // 2 de tiempo extra + 2 de ayuda del público por participante
+const TOTAL_QUESTIONS  = categories.length * values.length;
+const MEMORY_SECONDS   = 25;   // tiempo que se muestra la imagen de memorización
+// Una ronda = 4 preguntas (una por participante). Antes de cada ronda: ¿LISTOS? -> imagen -> tablero.
+const IMG_BASE = "https://cdn.jsdelivr.net/gh/TheGuppy-blip/Distribucion@b4a5a5e0513967c698000284c0228eb047e27a43/imagenes/";
+const ROUND_IMAGES = [IMG_BASE+"2.jpg", IMG_BASE+"4.jpg", IMG_BASE+"6.jpg", IMG_BASE+"8.jpg"];
+ROUND_IMAGES.forEach(src => { const im = new Image(); im.src = src; });   // precarga
+
+const QUESTION_BANK = {
+  "Ciencia vs. sentido común": [
+    {q:"¿Cómo se diferencia el uso de estructuras teóricas en la ciencia frente al sentido común?",
+     o:["Construye estructuras particulares y compartidas socialmente.",
+        "Construye estructuras intuitivas y conserva aspectos empíricos.",
+        "Construye estructuras sistemáticas y evaluación empírica.",
+        "Construye estructuras espontáneas y conserva aspectos contrastables."],a:2},
+    {q:"Si dos fenómenos ocurren juntos y se concluye que uno causa al otro, ¿qué hace el científico?",
+     o:["Establece la relación con observación causal, control y prueba empírica.",
+        "Establece la bidirección con observación compleja, control y prueba anecdótica.",
+        "Establece la relación con observación, control y oración divina.",
+        "Establece la relación con observación sistemática, control y prueba empírica."],a:3},
+    {q:"¿Por qué una explicación como “la pobreza existe porque Dios así lo dispuso” queda fuera del interés de la ciencia?",
+     o:["Porque contradice las tradiciones e instituciones religiosas establecidas.",
+        "Porque los fenómenos sociales como la pobreza no pueden estudiarse empíricamente.",
+        "Porque apela a una causa sobrenatural que no puede contrastarse empíricamente.",
+        "Porque depende de creencias individuales que varían de una persona a otra."],a:2},
+    {q:"Al estudiar la delincuencia por barrios, un investigador evalúa otros factores explicativos. ¿Qué principio aplica?",
+     o:["Buscar relaciones generales mediante acumulación de observaciones.",
+        "Aceptar provisionalmente relaciones observadas en distintos contextos.",
+        "El control sistemático de posibles causas alternativas.",
+        "Eliminar explicaciones metafísicas comparando interpretaciones."],a:2}
+  ],
+  "Métodos y concepciones de la ciencia": [
+    {q:"¿Qué caracteriza al método de la tenacidad para establecer creencias?",
+     o:["Respaldo de observaciones independientes y procedimientos públicos.",
+        "Respaldo de instituciones y tradiciones establecidas.",
+        "Evidencia racional e inclinación natural a la verdad.",
+        "Apego a las creencias, repetición y asumirlas como verdaderas."],a:3},
+    {q:"Si dos personas racionales llegan a conclusiones distintas usando el método a priori, ¿qué problema demuestra?",
+     o:["Las creencias persistentes generan conclusiones distintas sin aceptación pública.",
+        "Las autoridades generan conclusiones distintas sin una tradición común.",
+        "La experiencia personal genera conclusiones distintas sin suficiente repetición.",
+        "La razón individual genera conclusiones distintas sin un criterio externo independiente."],a:3},
+    {q:"¿Qué propiedad diferencia al método científico de los otros tres métodos?",
+     o:["Preservar las creencias compartidas por la comunidad, al final eso sirve más.",
+        "Transformar creencias individuales en conocimiento aceptado mediante la razón.",
+        "Corregir sistemáticamente el conocimiento mediante verificación empírica.",
+        "Establecer conclusiones mediante principios racionales compartidos y deducidos."],a:2},
+    {q:"¿Cuál es la diferencia entre la visión estática y la visión dinámica de la ciencia?",
+     o:["La estática la ve como un conjunto de conocimientos acumulados; la dinámica, como una actividad de investigación en constante revisión.",
+        "La estática la ve como una actividad de investigación en constante revisión; la dinámica, como un conjunto de conocimientos acumulados.",
+        "La estática se centra en la creatividad del científico; la dinámica, solo en los resultados prácticos.",
+        "La estática se limita a las ciencias naturales; la dinámica, a las ciencias sociales."],a:0}
+  ],
+  "Teoría e investigación científica": [
+    {q:"¿Cuál es el objetivo fundamental de la ciencia?",
+     o:["Acumular información empírica sobre fenómenos observables.",
+        "Formular procedimientos para controlar variables.",
+        "Generar teoría que explique sistemáticamente los fenómenos.",
+        "Producir aplicaciones prácticas para mejorar la humanidad."],a:2},
+    {q:"Si dos teorías explican lo mismo, pero una usa menos supuestos, ¿qué principio justifica preferirla?",
+     o:["Objetividad, porque a igual efectividad se prefiere la explicación más sencilla.",
+        "Parsimonia, porque reduce los valores del investigador.",
+        "Parsimonia, porque a igual efectividad se prefiere la explicación más sencilla.",
+        "Autocorrección, porque facilita hallar resultados contradictorios."],a:2},
+    {q:"¿Qué característica corresponde necesariamente a una teoría científica?",
+     o:["Conjunto de conceptos generales que describen información integrada y relacionada.",
+        "Conjunto de opiniones complejas que especifica relaciones entre variables para explicar y predecir.",
+        "Conjunto de hipótesis complejas que especifica relaciones entre variables para explicar y predecir.",
+        "Conjunto de constructos interrelacionados que especifica relaciones entre variables para explicar y predecir."],a:3},
+    {q:"¿Qué hace a una teoría científicamente útil respecto a una que acepta cualquier resultado?",
+     o:["Dar explicaciones generales, causales y lineales basadas en una comprobación.",
+        "Poder generar situaciones que permitan contradecirla empíricamente.",
+        "Añadir muchas variables para interpretar cualquier resultado multivariado.",
+        "Mantener sus ideas aun ante resultados incompatibles, ya que la estadística permite resultados debido al azar."],a:1}
+  ],
+  "El enfoque científico": [
+    {q:"¿Qué representa el componente “problema-obstáculo-idea”?",
+     o:["Formular una explicación de los fenómenos por causa-efecto.",
+        "Transformar una dificultad vaga en un problema manejable.",
+        "Transformar una dificultad vaga en un problema complejo.",
+        "Deducir consecuencias o implicaciones de una hipótesis."],a:1},
+    {q:"¿Qué opción define mejor una hipótesis científica?",
+     o:["Una descripción definitiva de fenómenos ya observados.",
+        "Una proposición definitiva sobre la relación entre variables que genera consecuencias observables.",
+        "Una proposición tentativa sobre la relación entre variables que genera consecuencias observables.",
+        "Una proposición compleja sobre la relación entre variables que genera resultados inútiles."],a:2},
+    {q:"Cuando una hipótesis permite establecer qué resultados deberían observarse si fuera correcta, ¿qué función de la investigación científica se está poniendo en práctica?",
+     o:["Formular una explicación general a partir de observaciones particulares previamente registradas.",
+        "Obtener consecuencias observables a partir de una explicación previamente planteada.",
+        "Comparar diferentes explicaciones para seleccionar aquella con observaciones favorables.",
+        "Modificar una explicación general después de encontrar resultados que contradicen sus predicciones."],a:1},
+    {q:"¿Qué problema surge al buscar solo evidencia compatible con la hipótesis?",
+     o:["Sesgo de confirmación: se ignoran los datos que podrían contradecirla y nunca se la somete a una prueba real.",
+        "Exceso de control: se eliminan variables que podrían explicar los resultados.",
+        "Falta de parsimonia: se agregan supuestos innecesarios a la explicación.",
+        "Imposibilidad de replicar: los procedimientos dejan de ser públicos."],a:0}
+  ]
+};
+
+let players = [];
+let turnMode = "orden";              // "orden" | "manual"
+let manualSelectedPlayer = null;     // índice elegido manualmente antes de abrir una casilla
+let scores = [];
+let jokers = [];                     // [{extra:2, public:2}, ...] uno por participante
+let currentPlayer = 0;               // rotación en modo "Orden"
+let activePlayer = null;             // jugador que responde la pregunta abierta actualmente
+let currentQuestion = null;
+let currentCell = null;
+let timeLeft = QUESTION_SECONDS;
+let timerId = null;
+let answerLocked = false;
+let usedCells = new Set();
+let questionsAnswered = 0;
+let currentRound = 0;                // 0 a 3
+let memoryTimerId = null;
+let attempted = new Set();           // participantes que ya intentaron la pregunta abierta
+
+/* =========================================================
+   AUDIO — motor de sonido generado con Web Audio API
+   (sin archivos externos: no depende de internet ni de licencias)
+   Estilo alegre / competitivo, inspirado en shows tipo Fall Guys.
+   ========================================================= */
+const SFX = (() => {
+  let ctx = null;
+  let master = null;
+  let muted = false;
+
+  // loops activos (para poder detenerlos)
+  let menuLoopTimer = null;
+  let questionLoopTimer = null;
+  let tensionLoopTimer = null;
+  let stealLoopTimer = null;
+  let menuStep = 0, questionStep = 0, tensionStep = 0, stealStep = 0;
+
+  function ensureCtx(){
+    if(!ctx){
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      master = ctx.createGain();
+      master.gain.value = muted ? 0 : 1;
+      master.connect(ctx.destination);
+    }
+    if(ctx.state === "suspended") ctx.resume();
+    return ctx;
+  }
+
+  // Reproduce una nota simple con envolvente (ataque rápido, caída suave).
+  function tone(freq, startOffset, dur, type, vol, glideTo){
+    if(!ctx) return;
+    const t = ctx.currentTime + Math.max(0,startOffset);
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || "square";
+    osc.frequency.setValueAtTime(freq, t);
+    if(glideTo){ osc.frequency.exponentialRampToValueAtTime(glideTo, t + dur); }
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.linearRampToValueAtTime(vol, t + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(gain).connect(master);
+    osc.start(t);
+    osc.stop(t + dur + 0.05);
+  }
+
+  function setMuted(val){
+    muted = val;
+    if(master) master.gain.setTargetAtTime(muted ? 0 : 1, ctx.currentTime, 0.05);
+  }
+
+  function unlock(){ ensureCtx(); }
+
+  /* ---- clic sutil de interfaz ---- */
+  function click(){
+    ensureCtx();
+    tone(1100, 0, 0.045, "triangle", 0.05);
+  }
+
+  /* ---- respuesta correcta: arpegio ascendente y alegre ---- */
+  function correct(){
+    ensureCtx();
+    [523.25,659.25,783.99,1046.50].forEach((f,i)=> tone(f, i*0.085, 0.16, "square", 0.11));
+  }
+
+  /* ---- respuesta incorrecta: zumbido descendente ---- */
+  function incorrect(){
+    ensureCtx();
+    tone(300, 0, 0.32, "sawtooth", 0.10, 110);
+    tone(220, 0.05, 0.28, "sawtooth", 0.08, 90);
+  }
+
+  /* ---- fanfarria de victoria (podio) ---- */
+  function victory(){
+    ensureCtx();
+    [523.25,659.25,783.99,1046.50,1318.51].forEach((f,i)=> tone(f, i*0.11, 0.3, "square", 0.13));
+    [261.63,392.00].forEach((f,i)=> tone(f, i*0.22, 0.4, "triangle", 0.08));
+  }
+
+  /* ---- música de menú / tablero: melodía alegre en bucle (estilo game show) ---- */
+  const MENU_MELODY = [523.25,0,659.25,0,783.99,659.25,523.25,0, 587.33,0,698.46,0,880.00,698.46,587.33,0];
+  const MENU_BASS   = [130.81,0,196.00,0,220.00,0,174.61,0];
+  function scheduleMenuStep(){
+    if(!ctx) return;
+    const mFreq = MENU_MELODY[menuStep % MENU_MELODY.length];
+    if(mFreq) tone(mFreq, 0, 0.18, "square", 0.045);
+    if(menuStep % 2 === 0){
+      const bFreq = MENU_BASS[(menuStep/2) % MENU_BASS.length];
+      if(bFreq) tone(bFreq, 0, 0.32, "triangle", 0.06);
+    }
+    menuStep++;
+    menuLoopTimer = setTimeout(scheduleMenuStep, 235);
+  }
+  function startMenuMusic(){
+    ensureCtx();
+    if(menuLoopTimer) return; // ya sonando
+    menuStep = 0;
+    scheduleMenuStep();
+  }
+  function stopMenuMusic(){
+    clearTimeout(menuLoopTimer);
+    menuLoopTimer = null;
+  }
+
+  /* ---- música "pensando" durante la pregunta (primeros segundos) ---- */
+  const THINK_MELODY = [392.00,0,466.16,0,523.25,466.16,392.00,0];
+  function scheduleQuestionStep(){
+    if(!ctx) return;
+    const f = THINK_MELODY[questionStep % THINK_MELODY.length];
+    if(f) tone(f, 0, 0.2, "triangle", 0.04);
+    questionStep++;
+    questionLoopTimer = setTimeout(scheduleQuestionStep, 300);
+  }
+  function startQuestionMusic(){
+    ensureCtx();
+    if(questionLoopTimer) return;
+    questionStep = 0;
+    scheduleQuestionStep();
+  }
+  function stopQuestionMusic(){
+    clearTimeout(questionLoopTimer);
+    questionLoopTimer = null;
+  }
+
+  /* ---- tensión: últimos 10 segundos, tic-tac que se acelera ---- */
+  function scheduleTensionStep(){
+    if(!ctx) return;
+    const pitch = 700 + (tensionStep % 5) * 40;
+    tone(pitch, 0, 0.09, "square", 0.09);
+    tensionStep++;
+    tensionLoopTimer = setTimeout(scheduleTensionStep, 480);
+  }
+  function startTension(){
+    ensureCtx();
+    stopQuestionMusic();
+    if(tensionLoopTimer) return;
+    tensionStep = 0;
+    scheduleTensionStep();
+  }
+  function stopTension(){
+    clearTimeout(tensionLoopTimer);
+    tensionLoopTimer = null;
+  }
+
+  /* ---- sirena de robo de puntos: suena desde la selección hasta la respuesta ---- */
+  function scheduleStealStep(){
+    if(!ctx) return;
+    const f = (stealStep % 2 === 0) ? 740 : 950;
+    tone(f, 0, 0.22, "sawtooth", 0.07);
+    stealStep++;
+    stealLoopTimer = setTimeout(scheduleStealStep, 230);
+  }
+  function startSteal(){
+    ensureCtx();
+    stopQuestionMusic();
+    stopTension();
+    if(stealLoopTimer) return;
+    stealStep = 0;
+    scheduleStealStep();
+  }
+  function stopSteal(){
+    clearTimeout(stealLoopTimer);
+    stealLoopTimer = null;
+  }
+
+  function stopAllLoops(){
+    stopMenuMusic();
+    stopQuestionMusic();
+    stopTension();
+    stopSteal();
+  }
+
+  return {
+    unlock, setMuted, click, correct, incorrect, victory,
+    startMenuMusic, stopMenuMusic,
+    startQuestionMusic, stopQuestionMusic,
+    startTension, stopTension,
+    startSteal, stopSteal,
+    stopAllLoops
+  };
+})();
+
+// Sonido de clic sutil en cualquier botón / opción, y desbloqueo del audio
+// en la primera interacción (los navegadores exigen un gesto del usuario).
+document.addEventListener("click", function(e){
+  const el = e.target.closest("button");
+  if(el){
+    SFX.unlock();
+    SFX.click();
+  }
+}, true);
+
+function toggleMute(){
+  const btn = document.getElementById("muteBtn");
+  const isMuted = btn.dataset.muted === "1";
+  SFX.setMuted(!isMuted);
+  btn.dataset.muted = isMuted ? "0" : "1";
+  btn.textContent = isMuted ? "🔊" : "🔇";
+}
+
+const screens = ["startScreen","registerScreen","readyScreen","memoryScreen","boardScreen","questionScreen","podiumScreen"];
+const MENU_MUSIC_SCREENS = ["startScreen","registerScreen","readyScreen","boardScreen","podiumScreen"];
+
+function showScreen(id){
+  screens.forEach(s => document.getElementById(s).classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+
+  if(MENU_MUSIC_SCREENS.includes(id)){
+    SFX.stopQuestionMusic();
+    SFX.stopTension();
+    SFX.stopSteal();
+    SFX.startMenuMusic();
+  } else if(id === "questionScreen" || id === "memoryScreen"){
+    SFX.stopMenuMusic();   // en la memorización hay silencio total
+  }
+}
+
+/* ---------- Registro ---------- */
+
+function goToRegister(){
+  initRegister();
+  showScreen("registerScreen");
+}
+
+function setTurnMode(mode){
+  turnMode = mode;
+  document.getElementById("modeOrdenBtn").classList.toggle("selected", mode === "orden");
+  document.getElementById("modeManualBtn").classList.toggle("selected", mode === "manual");
+}
+
+function initRegister(){
+  const form = document.getElementById("playersForm");
+  form.innerHTML = "";
+  for(let i=0;i<PLAYER_COUNT;i++){
+    const input = document.createElement("input");
+    input.className = "player-input";
+    input.id = "player"+i;
+    input.placeholder = "Escribe tu nombre participante " + (i+1);
+    input.maxLength = 30;
+    form.appendChild(input);
+  }
+}
+
+function savePlayers(){
+  const names = [];
+  for(let i=0;i<PLAYER_COUNT;i++){
+    const value = document.getElementById("player"+i).value.trim();
+    if(!value){
+      document.getElementById("registerError").textContent = "Escribe los nombres de los " + PLAYER_COUNT + " participantes.";
+      return;
+    }
+    names.push(value);
+  }
+  players = names;
+  scores = Array(PLAYER_COUNT).fill(0);
+  jokers = Array.from({length:PLAYER_COUNT}, () => ({extra:JOKERS_PER_TYPE, public:JOKERS_PER_TYPE}));
+  currentPlayer = 0;
+  manualSelectedPlayer = null;
+  usedCells = new Set();
+  questionsAnswered = 0;
+  document.getElementById("registerError").textContent = "";
+  startRound(0);
+}
+
+/* ---------- Rondas: ¿LISTOS? -> imagen de memorización -> tablero ---------- */
+
+function startRound(r){
+  currentRound = r;
+  clearInterval(memoryTimerId);
+  showScreen("readyScreen");
+}
+
+function startMemory(){
+  clearInterval(memoryTimerId);
+  document.getElementById("memoryImg").src = ROUND_IMAGES[currentRound];
+  let left = MEMORY_SECONDS;
+  const timerEl = document.getElementById("memoryTimer");
+  timerEl.textContent = "00:" + String(left).padStart(2,"0");
+  showScreen("memoryScreen");
+  memoryTimerId = setInterval(()=>{
+    left--;
+    timerEl.textContent = "00:" + String(Math.max(0,left)).padStart(2,"0");
+    if(left <= 0){
+      clearInterval(memoryTimerId);
+      renderBoard();
+      showScreen("boardScreen");
+    }
+  },1000);
+}
+
+/* ---------- Tablero ---------- */
+
+function renderBoard(){
+  renderPlayers();
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+  categories.forEach(cat => {
+    const el = document.createElement("div");
+    el.className = "category";
+    el.textContent = cat;
+    board.appendChild(el);
+  });
+
+  const manualNeedsSelection = (turnMode === "manual" && manualSelectedPlayer === null);
+
+  for(let r=0;r<values.length;r++){
+    for(let c=0;c<categories.length;c++){
+      const key = c+"-"+r;
+      const btn = document.createElement("button");
+      btn.className = "cell";
+      btn.textContent = values[r];
+      if(usedCells.has(key)){
+        btn.disabled = true;
+        btn.classList.add("used");
+        btn.textContent = "✓";
+      } else if(manualNeedsSelection){
+        btn.disabled = true;
+      } else {
+        btn.onclick = () => openQuestion(c,r,key);
+      }
+      board.appendChild(btn);
+    }
+  }
+
+  const progress = `Ronda ${currentRound+1} de ${ROUND_IMAGES.length} | Pregunta ${questionsAnswered+1} de ${TOTAL_QUESTIONS}`;
+  const roundInfo = document.getElementById("roundInfo");
+  if(turnMode === "manual"){
+    roundInfo.textContent = manualNeedsSelection
+      ? `Toca el nombre de quién va a responder | ${progress}`
+      : `Responde: ${players[manualSelectedPlayer]} | ${progress}`;
+  } else {
+    roundInfo.textContent = `Turno: Jugador ${currentPlayer+1} — ${players[currentPlayer]} | ${progress}`;
+  }
+}
+
+function renderPlayers(){
+  const wrap = document.getElementById("playerCards");
+  wrap.innerHTML = "";
+
+  const manualMode = turnMode === "manual";
+  players.forEach((p,i)=>{
+    const isActive = manualMode ? (i === manualSelectedPlayer) : (i === currentPlayer);
+    const card = document.createElement("div");
+    card.className = "player-card"
+      + (isActive ? " current" : "")
+      + (manualMode ? " selectable" : "")
+      + (manualMode && i === manualSelectedPlayer ? " manual-selected" : "");
+    card.innerHTML = `<div class="player-name">Jugador ${i+1}<br>${escapeHtml(p)}</div>
+                      <div class="score">${scores[i]}</div>
+                      <div class="joker-count" title="Comodines restantes">⏱️ ${jokers[i].extra} · 📣 ${jokers[i].public}</div>`;
+    if(manualMode){
+      card.onclick = () => selectManualPlayer(i);
+    }
+    wrap.appendChild(card);
+  });
+}
+
+function selectManualPlayer(i){
+  if(turnMode !== "manual") return;
+  manualSelectedPlayer = i;
+  renderBoard();
+}
+
+/* ---------- Pregunta ---------- */
+
+function openQuestion(catIndex,row,key){
+  if(usedCells.has(key)) return;
+  if(turnMode === "manual" && manualSelectedPlayer === null) return;
+
+  activePlayer = (turnMode === "manual") ? manualSelectedPlayer : currentPlayer;
+  attempted = new Set([activePlayer]);
+
+  currentCell = {catIndex,row,key};
+  currentQuestion = QUESTION_BANK[categories[catIndex]][row];
+  answerLocked = false;
+
+  document.getElementById("sideTitle").textContent = "Jugador en turno";
+  document.getElementById("questionPlayer").textContent = `Jugador ${activePlayer+1}: ${players[activePlayer]}`;
+  document.getElementById("questionCategory").textContent = categories[catIndex];
+  document.getElementById("questionValue").textContent = `${values[row]} puntos`;
+  document.getElementById("questionText").textContent = currentQuestion.q;
+  document.getElementById("questionStatus").textContent = "";
+  document.getElementById("jokerMessage").textContent = "";
+  renderOptions();
+  renderJokers();
+  startTimer(QUESTION_SECONDS, "question");
+  showScreen("questionScreen");
+}
+
+function renderOptions(){
+  const box = document.getElementById("options");
+  box.innerHTML = "";
+  ["A","B","C","D"].forEach((letter,i)=>{
+    const btn = document.createElement("button");
+    btn.className = "option "+letter.toLowerCase();
+    btn.textContent = `${letter}) ${currentQuestion.o[i]}`;
+    btn.onclick = () => answerQuestion(i);
+    box.appendChild(btn);
+  });
+}
+
+function renderJokers(){
+  const j = jokers[activePlayer];
+  const extraBtn = document.getElementById("jokerExtra");
+  const publicBtn = document.getElementById("jokerPublic");
+  extraBtn.textContent = `⏱️ +${EXTRA_SECONDS} segundos (${j.extra})`;
+  publicBtn.textContent = `📣 Ayuda del público (${j.public})`;
+  extraBtn.disabled = j.extra <= 0 || answerLocked;
+  publicBtn.disabled = j.public <= 0 || answerLocked;
+}
+
+function useJoker(type){
+  if(answerLocked) return;
+  const j = jokers[activePlayer];
+  if(!j || !(j[type] > 0)) return;
+  j[type]--;
+
+  if(type === "extra"){
+    timeLeft += EXTRA_SECONDS;
+    updateTimer();
+    document.getElementById("jokerMessage").textContent = `⏱️ Se agregaron ${EXTRA_SECONDS} segundos. Ahora tienes ${timeLeft} segundos.`;
+  } else {
+    document.getElementById("jokerMessage").textContent = "📣 Comodín activado: realiza la ayuda del público en la vida real.";
+  }
+  renderJokers();
+}
+
+function startTimer(seconds, context){
+  clearInterval(timerId);
+  timeLeft = seconds;
+  updateTimer();
+  if(context === "question"){
+    SFX.startQuestionMusic();
+  }
+  timerId = setInterval(()=>{
+    if(answerLocked) return;
+    timeLeft--;
+    updateTimer();
+    if(context === "question" && timeLeft === 10){
+      SFX.startTension();
+    }
+    if(timeLeft<=0){
+      clearInterval(timerId);
+      answerLocked = true;
+      disableOptions();
+      SFX.stopQuestionMusic();
+      SFX.stopTension();
+      if(context !== "question") SFX.incorrect();
+      handleFailedAttempt();
+    }
+  },1000);
+}
+
+function updateTimer(){
+  document.getElementById("timer").textContent = "00:"+String(Math.max(0,timeLeft)).padStart(2,"0");
+}
+
+function disableOptions(){
+  document.querySelectorAll("#options .option").forEach(b=>b.disabled=true);
+  renderJokers();
+}
+
+function answerQuestion(selected){
+  if(answerLocked) return;
+  answerLocked = true;
+  clearInterval(timerId);
+  disableOptions();
+  SFX.stopQuestionMusic();
+  SFX.stopTension();
+
+  if(selected === currentQuestion.a){
+    SFX.correct();
+    scores[activePlayer] += values[currentCell.row];
+    showResult(true, activePlayer, false);
+  } else {
+    SFX.incorrect();
+    handleFailedAttempt();
+  }
+}
+
+function showResult(correct, playerIndex, wasSteal){
+  const modal = document.getElementById("resultModal");
+  const label = document.getElementById("resultLabel");
+  const msg = document.getElementById("resultMsg");
+  const answer = document.getElementById("resultAnswer");
+  if(correct){
+    label.className = "correct-label";
+    label.textContent = "Respuesta correcta";
+    msg.textContent = `${players[playerIndex]} gana ${values[currentCell.row]} puntos.`;
+    answer.style.display = "none";
+  }else{
+    label.className = "incorrect-label";
+    label.textContent = "Respuesta incorrecta";
+    msg.textContent = wasSteal ? `${players[playerIndex]} falló. Ya no quedan participantes que puedan responder. Nadie gana puntos.` : "Nadie gana puntos.";
+    answer.style.display = "block";
+    answer.textContent = "La respuesta es: " + currentQuestion.o[currentQuestion.a];
+  }
+  modal.classList.add("show");
+}
+
+/* ---------- Robo de puntos ---------- */
+
+function remainingPlayers(){
+  return players.map((_,i)=>i).filter(i => !attempted.has(i));
+}
+
+// Tras un fallo (o tiempo agotado): si aún hay participantes que no han intentado,
+// se abre otro robo; la respuesta correcta se muestra solo cuando ya no queda nadie.
+function handleFailedAttempt(){
+  if(remainingPlayers().length > 0){
+    showStealModal();
+  } else {
+    SFX.stopSteal();
+    showResult(false, activePlayer, activePlayer !== null && attempted.size > 1);
+  }
+}
+
+function showStealModal(){
+  clearInterval(timerId);
+  SFX.startSteal();
+  const list = document.getElementById("stealList");
+  const note = document.getElementById("stealNote");
+  list.innerHTML = "";
+
+  const left = remainingPlayers().length;
+  note.textContent = `Elige a otro participante para intentar responder la misma pregunta. Pueden intentar: ${left}.`;
+  players.forEach((p,i)=>{
+    if(attempted.has(i)) return;
+    const btn = document.createElement("button");
+    btn.className = "steal-btn";
+    btn.textContent = `Participante ${i+1}: ${p}`;
+    btn.onclick = () => chooseStealPlayer(i);
+    list.appendChild(btn);
+  });
+  document.getElementById("stealModal").classList.add("show");
+}
+
+function chooseStealPlayer(i){
+  document.getElementById("stealModal").classList.remove("show");
+  answerLocked = false;
+  activePlayer = i;
+  attempted.add(i);
+  document.getElementById("questionPlayer").textContent = `Robo: Jugador ${i+1}: ${players[i]}`;
+  document.getElementById("questionStatus").textContent = "Responde el participante seleccionado.";
+  document.querySelectorAll("#options .option").forEach((btn,index)=>{
+    btn.disabled = false;
+    btn.onclick = () => stealAnswer(index,i);
+  });
+  // En el robo se da un nuevo límite de tiempo (la sirena sigue sonando).
+  startTimer(STEAL_SECONDS, "steal");
+}
+
+function stealAnswer(selected, playerIndex){
+  if(answerLocked) return;
+  answerLocked = true;
+  clearInterval(timerId);
+  disableOptions();
+  SFX.stopSteal();
+
+  if(selected === currentQuestion.a){
+    SFX.correct();
+    // El segundo jugador obtiene los puntos completos.
+    scores[playerIndex] += values[currentCell.row];
+    showResult(true, playerIndex, true);
+  }else{
+    SFX.incorrect();
+    handleFailedAttempt();
+  }
+}
+
+function continueAfterResult(){
+  document.getElementById("resultModal").classList.remove("show");
+  usedCells.add(currentCell.key);
+  questionsAnswered++;
+
+  if(questionsAnswered >= TOTAL_QUESTIONS){
+    showPodium();
+    return;
+  }
+
+  if(turnMode === "orden"){
+    // Rotación fija: siempre avanza al siguiente participante,
+    // independientemente de quién haya respondido el robo.
+    currentPlayer = (currentPlayer + 1) % PLAYER_COUNT;
+  } else {
+    // Modo manual: se debe elegir de nuevo quién responde la siguiente pregunta.
+    manualSelectedPlayer = null;
+  }
+
+  // Terminaron los 4 participantes: nueva ronda con su dinámica de memorización.
+  if(questionsAnswered % PLAYER_COUNT === 0){
+    startRound(questionsAnswered / PLAYER_COUNT);
+    return;
+  }
+
+  renderBoard();
+  showScreen("boardScreen");
+}
+
+/* ---------- Podio ---------- */
+
+function showPodium(){
+  clearInterval(timerId);
+  SFX.stopQuestionMusic();
+  SFX.stopTension();
+  SFX.stopSteal();
+  const podium = document.getElementById("podium");
+  podium.innerHTML = "";
+
+  const sorted = players.map((name,i)=>({name,score:scores[i],index:i}))
+    .sort((a,b)=>b.score-a.score);
+  const top = sorted.slice(0,3);
+
+  // Visual: segundo, primero, tercero; solo top 3.
+  const order = [
+    {rank:1,data:top[0],cls:"first"},
+    {rank:2,data:top[1],cls:"second"},
+    {rank:3,data:top[2],cls:"third"}
+  ].filter(item => item.data)
+   .sort((a,b)=>{
+    const visual = {2:0,1:1,3:2};
+    return visual[a.rank]-visual[b.rank];
+  });
+
+  order.forEach(item=>{
+    const el = document.createElement("div");
+    el.className = "place "+item.cls;
+    el.innerHTML = `<div class="place-name">${item.rank}° lugar — ${escapeHtml(item.data.name)}</div>
+                    <div class="block">${item.rank}</div>
+                    <div class="final-score">${item.data.score} puntos</div>`;
+    podium.appendChild(el);
+  });
+  showScreen("podiumScreen");
+  SFX.victory();
+}
+
+function restartGame(){
+  players = [];
+  turnMode = "orden";
+  manualSelectedPlayer = null;
+  scores = [];
+  jokers = [];
+  currentPlayer = 0;
+  activePlayer = null;
+  usedCells = new Set();
+  questionsAnswered = 0;
+  currentQuestion = null;
+  currentCell = null;
+  clearInterval(timerId);
+  clearInterval(memoryTimerId);
+  currentRound = 0;
+
+  setTurnMode("orden");
+  goToRegister();
+}
+
+function escapeHtml(text){
+  return text.replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[c]));
+}
+</script>
+</body>
+</html>
