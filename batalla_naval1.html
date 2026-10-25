@@ -1,0 +1,1307 @@
+<!doctype html>
+<html lang="es"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Batalla Naval Comunitaria</title>
+<style>
+  :root{
+    --navy:#1B2A4A;
+    --navy-light:#26385f;
+    --navy-dark:#111d33;
+    --emerald:#2ECC71;
+    --yellow:#F1C40F;
+    --red:#E74C3C;
+    --white:#F5F7FA;
+    --fog:#3a4d78;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;min-height:100%;
+    background:var(--navy-dark);
+    color:var(--white);
+    font-family:'Segoe UI',Verdana,Arial,sans-serif;
+    overflow-x:hidden;
+  }
+  .hidden{display:none !important;}
+  .screen{min-height:100vh;width:100%;}
+  button{
+    font-family:inherit;cursor:pointer;border:none;border-radius:10px;
+    font-weight:700;transition:transform .12s ease, filter .12s ease;
+  }
+  button:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.08);}
+  button:active:not(:disabled){transform:translateY(0);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+
+  /* ===== SETUP SCREEN ===== */
+  #setupScreen{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 20% 20%, var(--navy-light), var(--navy-dark) 60%);
+    padding:3vh 2vw;
+  }
+  #setupLogo{
+    display:block;width:100%;max-width:min(520px,90vw);height:auto;margin:0 auto .5em auto;
+  }
+  #setupScreen p.sub{color:#cfd8e8;margin:.2rem 0 1.2rem 0;font-size:1.1rem;text-align:center;}
+  #teamGrid{
+    display:grid;grid-template-columns:repeat(2,1fr);gap:1.2rem;
+    width:min(640px,92vw);margin-bottom:1.4rem;
+  }
+  .team-input-wrap{
+    background:var(--navy-light);border-radius:12px;padding:.8rem 1rem;
+    display:flex;flex-direction:column;gap:.4rem;
+  }
+  .team-input-wrap label{font-size:.9rem;color:var(--yellow);font-weight:700;}
+  .team-input-wrap input{
+    background:var(--navy-dark);color:var(--white);border:2px solid #3a4d78;
+    border-radius:8px;padding:.6rem .7rem;font-size:1.05rem;
+  }
+  .team-input-wrap input:focus{outline:none;border-color:var(--emerald);}
+  #firstPick{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;margin-bottom:1.8rem;}
+  .pick-btn{
+    background:var(--navy-light);color:var(--white);border:3px solid #3a4d78;
+    padding:.9rem 1.6rem;font-size:1.05rem;border-radius:12px;min-width:220px;
+  }
+  .pick-btn.selected{border-color:var(--emerald);background:#2c4370;color:var(--emerald);}
+  #startBtn{
+    background:var(--emerald);color:var(--navy-dark);font-size:1.5rem;
+    padding:1.1rem 3.4rem;border-radius:14px;box-shadow:0 6px 0 #1e9e56;
+  }
+  #startBtn:active:not(:disabled){box-shadow:0 2px 0 #1e9e56;}
+
+  /* ===== EYES SCREEN ===== */
+  #eyesScreen{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:2.5rem;padding:4vh 4vw;text-align:center;
+  }
+  #eyesMsg{font-size:clamp(2rem,5vw,3.6rem);margin:0;color:var(--white);}
+  #eyesNextBtn{
+    background:var(--emerald);color:var(--navy-dark);font-size:1.4rem;
+    padding:1rem 3rem;border-radius:14px;box-shadow:0 6px 0 #1e9e56;
+  }
+
+  /* ===== BOARD COMPONENT (shared) ===== */
+  .board-wrap{
+    display:grid;
+    grid-template-columns:var(--lab) calc(var(--cell) * 7);
+    grid-template-rows:var(--lab) calc(var(--cell) * 8);
+  }
+  .col-labels{display:flex;}
+  .row-labels{display:flex;flex-direction:column;}
+  .col-labels span,.row-labels span{
+    width:var(--cell);height:var(--cell);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--yellow);font-weight:800;font-size:calc(var(--cell) * .3);
+  }
+  .col-labels span{height:var(--lab);}
+  .row-labels span{width:var(--lab);}
+  .grid{
+    position:relative;display:grid;
+    grid-template-columns:repeat(7,var(--cell));
+    grid-template-rows:repeat(8,var(--cell));
+    border:2px solid #0e1830;border-radius:6px;overflow:hidden;
+    box-sizing:content-box;
+  }
+  .bcell{
+    width:var(--cell);height:var(--cell);position:relative;overflow:hidden;
+    border:1px solid rgba(255,255,255,.14);background:var(--fog);user-select:none;
+  }
+  .bcell img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;}
+  .bcell.pwater{background-color:#1c5c8c;background-image:var(--water-url);background-size:cover;}
+  .bcell.fireable{cursor:crosshair;box-shadow:0 0 0 3px var(--emerald) inset;}
+  .bcell.fireable:hover{background:#4d6398;}
+  .bcell.mine-cell{background:#5c1c1c;}
+  .bcell.shake{animation:shake .5s ease;}
+  @keyframes shake{
+    0%,100%{transform:translate(0,0);}
+    20%{transform:translate(-4px,2px);}
+    40%{transform:translate(4px,-2px);}
+    60%{transform:translate(-3px,-2px);}
+    80%{transform:translate(3px,2px);}
+  }
+  .layer{position:absolute;inset:0;pointer-events:none;}
+
+  /* piezas (barcos / minas) */
+  .piece{
+    display:flex;touch-action:none;user-select:none;-webkit-user-select:none;flex:none;
+  }
+  .piece .seg{width:var(--cell);height:var(--cell);flex:none;overflow:hidden;}
+  .piece img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;}
+  .piece.draggable{cursor:grab;}
+  .piece.on-board{position:absolute;pointer-events:auto;}
+  .piece.dragging{
+    position:fixed !important;z-index:500;pointer-events:none;opacity:.92;
+    filter:drop-shadow(0 8px 10px rgba(0,0,0,.55));cursor:grabbing;
+  }
+  .piece.sunk{position:absolute;filter:grayscale(.45);}
+  .ghost{
+    position:absolute;border:3px solid var(--emerald);background:rgba(46,204,113,.25);
+    border-radius:6px;pointer-events:none;z-index:5;
+  }
+  .ghost.bad{border-color:var(--red);background:rgba(231,76,60,.28);}
+
+  /* ===== PLACEMENT SCREEN ===== */
+  #placeScreen{
+    --cell:min(7.4vh,11vw);--lab:calc(var(--cell) * .55);
+    background:linear-gradient(180deg, var(--navy) 0%, var(--navy-dark) 100%);
+    padding:2vh 2vw;display:flex;flex-direction:column;align-items:center;
+  }
+  #placeTitle{margin:.2rem 0;color:var(--yellow);font-size:clamp(1.3rem,2.6vw,2rem);text-align:center;}
+  #placeHint{margin:.1rem 0 1rem 0;color:#cfd8e8;text-align:center;font-size:.98rem;}
+  #placeLayout{display:flex;gap:2rem;align-items:flex-start;justify-content:center;flex-wrap:wrap;width:100%;}
+  #placePanel{
+    background:var(--navy-light);border-radius:14px;padding:1rem 1.1rem;
+    width:min(380px,92vw);display:flex;flex-direction:column;gap:.8rem;
+  }
+  #placePanel h3{margin:0;color:var(--yellow);font-size:1.1rem;}
+  #tray{
+    display:flex;flex-wrap:wrap;gap:.7rem;align-items:flex-start;
+    min-height:calc(var(--cell) * 1.8);
+    background:rgba(0,0,0,.22);border-radius:10px;padding:.7rem;
+  }
+  #tray .empty{color:#9fb0d1;font-size:.95rem;align-self:center;}
+  #placeCount{color:#cfd8e8;font-size:.95rem;}
+  .panel-btns{display:flex;flex-direction:column;gap:.55rem;}
+  #randomBtn{background:var(--yellow);color:var(--navy-dark);padding:.75rem 1rem;font-size:1rem;}
+  #clearBtn{background:#3a4d78;color:var(--white);padding:.65rem 1rem;font-size:.95rem;}
+  #placeNextBtn{background:var(--emerald);color:var(--navy-dark);padding:.9rem 1rem;font-size:1.15rem;box-shadow:0 4px 0 #1e9e56;}
+
+  /* ===== GAME SCREEN ===== */
+  #gameScreen{
+    --cell:min(6.6vh,5.2vw);--lab:calc(var(--cell) * .55);
+    background:linear-gradient(180deg, var(--navy) 0%, var(--navy-dark) 100%);
+    padding:1.2vh 1vw;display:flex;flex-direction:column;align-items:center;
+  }
+  #topBar{
+    position:relative;z-index:60;width:100%;max-width:1100px;
+    display:flex;align-items:stretch;justify-content:space-between;gap:.8rem;flex-wrap:wrap;
+    background:var(--navy-light);border:2px solid #3a4d78;border-radius:14px;padding:.6rem .9rem;
+    margin-bottom:1vh;
+  }
+  .score-card{
+    flex:1 1 180px;background:var(--navy-dark);border:3px solid transparent;border-radius:12px;
+    padding:.45rem .9rem;display:flex;flex-direction:column;justify-content:center;
+  }
+  .score-card.active{border-color:var(--emerald);}
+  .score-card .sname{font-weight:800;font-size:1rem;color:#cfd8e8;overflow-wrap:anywhere;}
+  .score-card .sscore{font-weight:800;font-size:1.6rem;color:var(--yellow);}
+  #centerCtrl{
+    flex:1 1 300px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;
+  }
+  #turnLabel{font-weight:800;font-size:1.05rem;text-align:center;}
+  #turnLabel span{color:var(--emerald);}
+  #qCounter{font-size:.85rem;color:#9fb0d1;}
+  #ctrlBtns{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;}
+  #pauseBtn{background:#3a4d78;color:var(--white);padding:.6rem 1rem;font-size:.95rem;}
+  #answerBtn{background:var(--red);color:var(--white);padding:.65rem 1.3rem;font-size:1.05rem;box-shadow:0 4px 0 #a83226;}
+  #answerBtn:active:not(:disabled){box-shadow:0 1px 0 #a83226;}
+  #boards{
+    display:flex;gap:3vw;justify-content:center;align-items:flex-start;flex-wrap:wrap;width:100%;
+  }
+  .board-col{
+    display:flex;flex-direction:column;align-items:center;gap:.35rem;
+    padding:.5rem .6rem .7rem .6rem;border-radius:14px;border:3px solid transparent;
+  }
+  .board-col.target{border-color:var(--emerald);background:rgba(46,204,113,.08);}
+  .board-title{font-weight:800;font-size:1.05rem;color:var(--white);text-align:center;}
+  .board-sub{font-size:.85rem;color:#9fb0d1;min-height:1.2em;text-align:center;}
+  .board-col.target .board-sub{color:var(--emerald);font-weight:800;}
+  #boardFootnote{margin-top:.8vh;color:#a9b8d6;font-size:.9rem;text-align:center;max-width:900px;}
+
+  @media (max-aspect-ratio: 1/1){
+    #gameScreen{--cell:min(11vw,5vh);}
+  }
+
+  /* ===== MODALS ===== */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(5,10,20,.86);
+    display:flex;align-items:center;justify-content:center;z-index:50;
+    padding:2vh 2vw;
+  }
+  .modal-box{
+    background:var(--navy);border:3px solid var(--navy-light);border-radius:18px;
+    padding:1.8rem 2.1rem;width:min(760px,94vw);max-height:92vh;overflow-y:auto;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  #questionTeamLabel{
+    font-size:1.1rem;color:var(--yellow);font-weight:800;margin-bottom:.5rem;text-align:center;
+  }
+  #timerBarOuter{
+    width:100%;height:14px;background:#0e1830;border-radius:8px;overflow:hidden;margin-bottom:.3rem;
+  }
+  #timerFill{height:100%;background:var(--emerald);width:100%;transition:width 1s linear, background .3s;}
+  #timerNumber{text-align:center;font-size:1.5rem;font-weight:800;margin-bottom:.9rem;}
+  #questionText{font-size:1.3rem;line-height:1.4;margin-bottom:1.2rem;text-align:center;font-weight:600;}
+  #optionsContainer{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+  .option-btn{
+    background:var(--navy-light);color:var(--white);border-radius:12px;
+    padding:1rem .9rem;font-size:1.02rem;text-align:left;border:2px solid #3a4d78;
+  }
+  .option-btn.correct-flash{background:var(--emerald) !important;color:var(--navy-dark) !important;border-color:var(--emerald);}
+  .option-btn.wrong-flash{background:var(--red) !important;color:var(--white) !important;border-color:var(--red);}
+  .option-btn.eliminated{opacity:.3;text-decoration:line-through;pointer-events:none;}
+
+  #pauseOverlay{z-index:90;flex-direction:column;gap:1.5rem;}
+  #pauseOverlay h2{font-size:clamp(2rem,5vw,3.2rem);margin:0;color:var(--yellow);}
+  #resumeBtn{background:var(--emerald);color:var(--navy-dark);font-size:1.3rem;padding:.9rem 2.6rem;border-radius:14px;}
+
+  #alertBanner{
+    position:fixed;top:4vh;left:50%;transform:translateX(-50%);
+    background:var(--yellow);color:var(--navy-dark);font-weight:800;font-size:1.25rem;
+    padding:1rem 2rem;border-radius:14px;z-index:120;box-shadow:0 10px 30px rgba(0,0,0,.4);
+    text-align:center;max-width:80vw;
+  }
+
+  /* ===== VICTORY SCREEN ===== */
+  #victoryScreen{
+    position:fixed;inset:0;background:radial-gradient(circle at 50% 20%, var(--navy-light), var(--navy-dark) 75%);
+    z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:3vh 2vw;overflow:hidden;
+  }
+  #victoryScreen h1{font-size:clamp(2rem,5vw,3.6rem);color:var(--yellow);margin-bottom:.15em;text-align:center;}
+  #endReason{color:#cfd8e8;font-size:1rem;margin-bottom:.6rem;text-align:center;}
+  #winnerName{font-size:clamp(1.6rem,4vw,2.6rem);color:var(--emerald);font-weight:800;margin-bottom:1.3rem;text-align:center;}
+  #podium{display:flex;align-items:flex-end;gap:1.2rem;margin-bottom:2rem;}
+  .podium-step{
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+    color:var(--white);font-weight:800;
+  }
+  .podium-block{
+    background:var(--navy-light);border:3px solid var(--yellow);border-radius:10px 10px 0 0;
+    width:160px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;
+  }
+  .podium-step .pname{margin-bottom:.3rem;font-size:1.05rem;text-align:center;max-width:160px;overflow-wrap:anywhere;}
+  .podium-step .pscore{margin-bottom:.3rem;color:var(--yellow);}
+  #newGameBtn{
+    margin-top:1rem;background:var(--emerald);color:var(--navy-dark);
+    font-size:1.1rem;padding:.85rem 2.1rem;border-radius:12px;
+  }
+  .confetti{
+    position:absolute;top:-10px;width:10px;height:16px;opacity:.9;
+    animation:fall linear forwards;
+  }
+  @keyframes fall{
+    to{transform:translateY(110vh) rotate(360deg);opacity:.3;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= SETUP SCREEN ================= -->
+<div id="setupScreen" class="screen">
+  <img id="setupLogo" src="https://cdn.jsdelivr.net/gh/TheGuppy-blip/Distribucion@350dbc82663f2a97a67f49fa821b0ea5e7452e5c/imagenes/Emblema%20de%20Batalla%20Naval.png" alt="Batalla Naval Comunitaria">
+  <p class="sub">Ingresa el nombre de los 2 equipos y elige quién empieza primero</p>
+  <div id="teamGrid">
+    <div class="team-input-wrap">
+      <label>Equipo 1</label>
+      <input type="text" id="teamInput0" placeholder="Equipo 1" maxlength="24">
+    </div>
+    <div class="team-input-wrap">
+      <label>Equipo 2</label>
+      <input type="text" id="teamInput1" placeholder="Equipo 2" maxlength="24">
+    </div>
+  </div>
+  <p class="sub" style="margin-bottom:.7rem;">¿Quién empieza primero?</p>
+  <div id="firstPick">
+    <button class="pick-btn" id="pick0"></button>
+    <button class="pick-btn" id="pick1"></button>
+  </div>
+  <button id="startBtn" disabled>🚀 Iniciar Juego</button>
+</div>
+
+<!-- ================= EYES SCREEN ================= -->
+<div id="eyesScreen" class="screen hidden">
+  <h1 id="eyesMsg"></h1>
+  <button id="eyesNextBtn">Siguiente ➡️</button>
+</div>
+
+<!-- ================= PLACEMENT SCREEN ================= -->
+<div id="placeScreen" class="screen hidden">
+  <h2 id="placeTitle"></h2>
+  <p id="placeHint">Arrastra las piezas al tablero con el clic derecho (o izquierdo) · Doble clic sobre un barco para girarlo · Arrastra una pieza fuera del tablero para devolverla</p>
+  <div id="placeLayout">
+    <div id="placeBoardHolder"></div>
+    <div id="placePanel">
+      <h3>🚢 Piezas por colocar</h3>
+      <div id="tray"></div>
+      <div id="placeCount"></div>
+      <div class="panel-btns">
+        <button id="randomBtn">🎲 Colocar de forma aleatoria</button>
+        <button id="clearBtn">🧹 Quitar todo del tablero</button>
+        <button id="placeNextBtn" disabled>Siguiente ➡️</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= GAME SCREEN ================= -->
+<div id="gameScreen" class="screen hidden">
+  <div id="topBar">
+    <div class="score-card" id="scoreCard0"><span class="sname"></span><span class="sscore">0 pts</span></div>
+    <div id="centerCtrl">
+      <div id="turnLabel"></div>
+      <div id="qCounter"></div>
+      <div id="ctrlBtns">
+        <button id="pauseBtn">⏸ Pausa</button>
+        <button id="answerBtn">❓ Contestar pregunta</button>
+      </div>
+    </div>
+    <div class="score-card" id="scoreCard1"><span class="sname"></span><span class="sscore">0 pts</span></div>
+  </div>
+  <div id="boards">
+    <div class="board-col" id="boardCol0"></div>
+    <div class="board-col" id="boardCol1"></div>
+  </div>
+  <p id="boardFootnote">El equipo en turno contesta una pregunta; si acierta, dispara al tablero del rival.</p>
+</div>
+
+<!-- ================= QUESTION MODAL ================= -->
+<div id="questionModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div id="questionTeamLabel"></div>
+    <div id="timerBarOuter"><div id="timerFill"></div></div>
+    <div id="timerNumber">25</div>
+    <p id="questionText"></p>
+    <div id="optionsContainer"></div>
+  </div>
+</div>
+
+<!-- ================= PAUSE OVERLAY ================= -->
+<div id="pauseOverlay" class="modal-overlay hidden">
+  <h2>⏸ Juego en pausa</h2>
+  <button id="resumeBtn">▶️ Reanudar</button>
+</div>
+
+<!-- ================= VICTORY SCREEN ================= -->
+<div id="victoryScreen" class="hidden">
+  <h1>🎉 ¡Fin de la Batalla! 🎉</h1>
+  <div id="endReason"></div>
+  <h2 id="winnerName"></h2>
+  <div id="podium"></div>
+  <button id="newGameBtn">🔄 Nuevo Juego</button>
+</div>
+
+<script>
+/* =====================================================================
+   BANCO DE 23 PREGUNTAS (Kerlinger, Capítulo 2)
+   Formato: { q, options:[a,b,c,d], correct: índice (0=A,1=B,2=C,3=D) }
+   ===================================================================== */
+const QUESTION_BANK = [
+{q:"¿Qué caracteriza principalmente a un problema de investigación científica?",
+ options:["Explica de manera definitiva las causas de un fenómeno.","Plantea una pregunta que puede investigarse mediante evidencia empírica.","Presenta una opinión fundamentada sobre una situación social.","Describe las técnicas que se utilizarán para analizar los datos."], correct:1},
+{q:"¿Cuál de los siguientes es uno de los criterios para formular adecuadamente un problema de investigación?",
+ options:["Incluir todas las variables posibles relacionadas con el fenómeno.","Presentar una explicación definitiva antes de recolectar los datos.","Expresar el problema de manera clara y sin ambigüedades.","Evitar formular preguntas para no limitar la investigación."], correct:2},
+{q:"¿Por qué es importante que un problema de investigación establezca una relación entre variables?",
+ options:["Porque permite orientar la investigación hacia una relación que puede estudiarse.","Porque garantiza que las variables tendrán una relación estadísticamente significativa.","Porque permite eliminar la necesidad de formular hipótesis.","Porque asegura que los resultados podrán generalizarse a cualquier población."], correct:0},
+{q:"¿Cuál de los siguientes enunciados cumple mejor con el criterio de claridad en la formulación de un problema?",
+ options:["La educación es importante para el desarrollo de las personas.","El propósito de este estudio es comprender la importancia de la educación.","La educación debería mejorar las condiciones de todos los estudiantes.","¿Qué relación existe entre las horas de estudio y el rendimiento académico de los estudiantes universitarios?"], correct:3},
+{q:"¿Qué distingue principalmente a una pregunta científica de una pregunta de valor?",
+ options:["La pregunta científica siempre estudia fenómenos naturales.","La pregunta científica permite someter sus planteamientos a una prueba empírica.","La pregunta de valor carece necesariamente de importancia social.","La pregunta de valor requiere más variables que la científica."], correct:1},
+{q:"¿Cuál de los siguientes enunciados representa principalmente una pregunta de valor?",
+ options:["¿Qué relación existe entre la asistencia a clases y las calificaciones?","¿Cuánto tiempo dedican los estudiantes a realizar sus tareas?","¿Cuál es la mejor manera de enseñar a los estudiantes universitarios?","¿Cómo se relacionan las horas de sueño con la atención?"], correct:2},
+{q:"Según Kerlinger, ¿qué es una hipótesis?",
+ options:["Una afirmación provisional acerca de la relación entre dos o más variables.","Una descripción detallada de los procedimientos de una investigación.","Una conclusión que se obtiene después de analizar los resultados.","Una explicación que se acepta como verdadera al formular el problema."], correct:0},
+{q:"¿Cuál es una característica importante de la formulación de una hipótesis?",
+ options:["Debe expresar una opinión personal sobre las variables.","Debe evitar establecer relaciones específicas entre los fenómenos.","Debe incluir exclusivamente variables que no puedan medirse directamente.","Debe formularse como un enunciado declarativo que exprese una relación entre variables."], correct:3},
+{q:"Una investigadora plantea que los estudiantes que duermen menos horas obtienen calificaciones más bajas. ¿Qué función cumple este planteamiento?",
+ options:["Describe los instrumentos que se utilizarán para medir las calificaciones.","Propone una relación entre variables que puede someterse a prueba.","Presenta una conclusión definitiva sobre el rendimiento académico.","Establece un juicio sobre los hábitos de los estudiantes."], correct:1},
+{q:"¿Por qué las hipótesis pueden derivarse de una teoría?",
+ options:["Porque las teorías eliminan la necesidad de recolectar evidencia.","Porque toda teoría contiene conclusiones que no pueden modificarse.","Porque permiten formular predicciones específicas a partir de explicaciones más generales.","Porque una teoría demuestra anticipadamente que todas las hipótesis son correctas."], correct:2},
+{q:"¿Cuál es una de las principales funciones de las hipótesis en la investigación científica?",
+ options:["Orientar la investigación y ayudar a decidir qué relaciones examinar.","Sustituir la revisión de investigaciones anteriores.","Evitar que los resultados contradigan las expectativas del investigador.","Garantizar que se confirme la explicación propuesta."], correct:0},
+{q:"¿Qué significa que una hipótesis sea susceptible de prueba empírica?",
+ options:["Que debe coincidir con las opiniones de la mayoría de los investigadores.","Que sus resultados deben ser positivos para considerarla científica.","Que puede aceptarse si parece coherente con la teoría.","Que sus planteamientos pueden contrastarse mediante observaciones o mediciones."], correct:3},
+{q:"¿Qué relación existe entre las hipótesis y la teoría científica?",
+ options:["Las hipótesis sustituyen a las teorías cuando se obtienen resultados significativos.","Las hipótesis permiten derivar predicciones y conectar la teoría con la investigación empírica.","Las teorías solo se elaboran después de confirmar todas las hipótesis.","Las hipótesis y las teorías son equivalentes y cumplen exactamente la misma función."], correct:1},
+{q:"¿Por qué Kerlinger considera que las hipótesis contribuyen al avance del conocimiento científico?",
+ options:["Porque permiten eliminar la incertidumbre de cualquier investigación.","Porque convierten las explicaciones teóricas en hechos definitivos.","Porque permiten poner a prueba explicaciones y generar nuevas preguntas de investigación.","Porque garantizan que los resultados coincidan con los estudios anteriores."], correct:2},
+{q:"¿Qué se debe hacer cuando una hipótesis no recibe apoyo de los resultados obtenidos?",
+ options:["Considerar la evidencia y utilizar los hallazgos para revisar explicaciones o proponer nuevas hipótesis.","Descartar los datos que contradicen la hipótesis original.","Modificar los resultados hasta que coincidan con la predicción.","Concluir que la investigación carece de utilidad científica."], correct:0},
+{q:"¿Cuál es el principal problema de un enunciado que afirma que «los métodos autoritarios de enseñanza producen un aprendizaje deficiente»?",
+ options:["No establece ninguna relación entre los fenómenos.","Solo puede estudiarse mediante investigación histórica.","Es demasiado específico para una investigación educativa.","Incluye términos valorativos que necesitan definirse de manera que puedan medirse."], correct:3},
+{q:"¿Qué caracteriza a los problemas metodológicos que se presentan erróneamente como problemas sustantivos de investigación?",
+ options:["Siempre plantean relaciones novedosas entre variables psicológicas.","Se centran en técnicas de muestreo, medición o análisis, en lugar del problema de fondo.","Explican las causas principales del fenómeno que se investiga.","Formulan preguntas científicas que necesariamente carecen de solución."], correct:1},
+{q:"¿Qué dificultad presenta un problema de investigación demasiado general?",
+ options:["Impide estudiar cualquier fenómeno que incluya más de una variable.","Limita necesariamente la investigación a una sola población.","Puede ser tan vago que resulte difícil someterlo a prueba empírica.","Hace imposible formular hipótesis a partir de una teoría."], correct:2},
+{q:"¿Qué riesgo existe cuando un problema de investigación es demasiado específico?",
+ options:["Que sus resultados sean difíciles de generalizar a otras situaciones o grupos.","Que las variables no puedan definirse operacionalmente.","Que el estudio necesariamente se vuelva demasiado amplio.","Que las hipótesis dejen de expresar relaciones entre variables."], correct:0},
+{q:"¿Qué propone Kerlinger respecto al nivel de generalidad de los problemas de investigación?",
+ options:["Formularlos de manera muy amplia para abarcar todos los fenómenos relacionados.","Reducirlos al mínimo para facilitar la recolección de datos.","Evitar establecer límites hasta terminar el análisis de resultados.","Encontrar un equilibrio entre generalidad y especificidad que permita investigarlos sin perder relevancia."], correct:3},
+{q:"¿Por qué es importante considerar varias variables al estudiar el comportamiento humano?",
+ options:["Porque permite demostrar que todas las variables influyen de la misma manera.","Porque los fenómenos del comportamiento suelen depender de múltiples factores que interactúan.","Porque elimina la necesidad de controlar las condiciones de investigación.","Porque asegura que una variable siempre tendrá mayor influencia que las demás."], correct:1},
+{q:"¿Cuál de los siguientes ejemplos representa mejor una explicación multivariable de la agresividad?",
+ options:["La agresividad depende exclusivamente de la frustración experimentada por una persona.","La agresividad es una característica fija que no cambia según las circunstancias.","La agresividad puede relacionarse con la frustración, el contexto, el sexo y otras características de la persona.","La agresividad puede explicarse sin considerar las condiciones en las que ocurre."], correct:2},
+{q:"¿Qué significa que la evidencia empírica no prueba definitivamente una hipótesis?",
+ options:["Que los resultados pueden aportar mayor o menor respaldo a una hipótesis, sin convertirla en una verdad absoluta.","Que los datos empíricos no tienen utilidad para evaluar explicaciones científicas.","Que una hipótesis solo puede aceptarse cuando coincide con todas las teorías existentes.","Que los investigadores deben evitar formular predicciones antes de recolectar datos."], correct:0}
+];
+/* ============  FIN DEL BANCO DE PREGUNTAS  ============ */
+
+/* =====================================================================
+   CONFIGURACIÓN
+   ===================================================================== */
+const COLS = 7;                      // columnas del tablero
+const ROWS = 8;                      // filas del tablero
+const SHIP_LENGTHS = [4,4,3,3,2];    // 2 barcos de 4, 2 de 3 y 1 de 2
+const MINE_COUNT = 3;
+const POINTS = { question:75, hit:100, mine:-50 };
+const QUESTION_TIME = 25;
+const TOTAL_QUESTIONS = QUESTION_BANK.length;   // 23
+
+/* =====================================================================
+   IMÁGENES
+   Las imágenes están diseñadas mirando hacia la derecha
+   (orden natural izquierda→derecha: Popa, Cuerpo A, Cuerpo B, Proa).
+   Para naves verticales se rota 90° con CSS.
+   ===================================================================== */
+const IMG_BASE = 'https://cdn.jsdelivr.net/gh/TheGuppy-blip/Distribucion@ecc4253228eeb9fc35583eafdef7139caaecca88/imagenes/';
+const SHIP_IMAGES = {
+  stern: IMG_BASE+'Popa.png',
+  bodyA: IMG_BASE+'Cuerpo%20A.png',
+  bodyB: IMG_BASE+'Cuerpo%20B.png',
+  bow:   IMG_BASE+'Proa.png'
+};
+const WATER_IMAGE_URL = IMG_BASE+'Agua.png';
+const MINE_IMAGE_URL  = IMG_BASE+'Mina.png';
+document.documentElement.style.setProperty('--water-url', 'url("'+WATER_IMAGE_URL+'")');
+
+function getShipRole(posInShip, length){
+  if(posInShip===0) return 'stern';
+  if(posInShip===length-1) return 'bow';
+  if(length===4) return (posInShip===1) ? 'bodyA' : 'bodyB';
+  return 'bodyA';
+}
+function shipSegmentMarkup(role, horizontal){
+  const rotation = horizontal ? 0 : 90;
+  return `<img src="${SHIP_IMAGES[role]}" alt="" draggable="false" style="transform:rotate(${rotation}deg);">`;
+}
+function waterMarkup(){ return `<img src="${WATER_IMAGE_URL}" alt="" draggable="false">`; }
+function mineMarkup(){ return `<img src="${MINE_IMAGE_URL}" alt="" draggable="false">`; }
+/* Marca de impacto: NO revela el segmento (no delata la orientación). */
+function hitMarkup(){
+  return `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#2a0f0f;">
+    <div style="width:42%;height:42%;border-radius:50%;background:rgba(231,76,60,.6);box-shadow:0 0 10px rgba(231,76,60,.85);"></div>
+  </div>`;
+}
+
+/* Pieza "empaquetada": barco completo (o mina) dentro de su tamaño en casillas */
+function buildPieceEl(p){
+  const el = document.createElement('div');
+  el.className = 'piece';
+  el.dataset.id = p.id;
+  const w = p.horizontal ? p.length : 1;
+  const h = p.horizontal ? 1 : p.length;
+  el.style.width  = `calc(var(--cell) * ${w})`;
+  el.style.height = `calc(var(--cell) * ${h})`;
+  el.style.flexDirection = p.horizontal ? 'row' : 'column';
+  if(p.type==='mine'){
+    el.innerHTML = `<div class="seg">${mineMarkup()}</div>`;
+  } else {
+    let html='';
+    for(let k=0;k<p.length;k++){
+      html += `<div class="seg">${shipSegmentMarkup(getShipRole(k,p.length), p.horizontal)}</div>`;
+    }
+    el.innerHTML = html;
+  }
+  return el;
+}
+
+/* =====================================================================
+   ESTADO
+   ===================================================================== */
+let teams = [];
+let firstTeam = null;
+let placements = [null,null];   // piezas de cada equipo (en su propio tablero)
+let placeStep = 0;
+let placeTeam = 0;
+const PLACE_STEPS = [ {close:1, place:0}, {close:0, place:1} ];
+
+let boards = [null,null];       // boards[i] = tablero con los barcos del equipo i
+let gameGrids = [], gameLayers = [];
+
+let turnTeam = 0;
+let turnInProgress = false;
+let originalTurnTeam = 0;
+let answeringTeam = 0;
+let isSteal = false;
+let usedQuestionIndices = new Set();
+let currentQuestion = null;
+
+let canFire = false;
+let shooterTeam = null;
+let targetBoard = null;
+
+let paused = false;
+let gameOver = false;
+let timerInterval = null;
+let timerActive = false;
+let timeLeft = QUESTION_TIME;
+let timerWasRunning = false;
+let audioCtx = null;
+
+const other = i => 1-i;
+
+/* =====================================================================
+   UTILIDADES
+   ===================================================================== */
+function shuffleArray(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+function rand(n){ return Math.floor(Math.random()*n); }
+
+function getCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  return audioCtx;
+}
+function playSound(type){
+  try{
+    const ctx=getCtx();
+    const o=ctx.createOscillator();
+    const g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    const now=ctx.currentTime;
+    if(type==='success'){
+      o.type='sine';
+      o.frequency.setValueAtTime(440,now);
+      o.frequency.exponentialRampToValueAtTime(880,now+0.22);
+      g.gain.setValueAtTime(0.22,now);
+      g.gain.exponentialRampToValueAtTime(0.001,now+0.32);
+      o.start(now); o.stop(now+0.33);
+    } else if(type==='mine'){
+      o.type='sawtooth';
+      o.frequency.setValueAtTime(220,now);
+      o.frequency.exponentialRampToValueAtTime(45,now+0.45);
+      g.gain.setValueAtTime(0.28,now);
+      g.gain.exponentialRampToValueAtTime(0.001,now+0.5);
+      o.start(now); o.stop(now+0.5);
+    } else if(type==='hit'){
+      o.type='square';
+      o.frequency.setValueAtTime(320,now);
+      g.gain.setValueAtTime(0.16,now);
+      g.gain.exponentialRampToValueAtTime(0.001,now+0.16);
+      o.start(now); o.stop(now+0.17);
+    } else if(type==='sunk'){
+      o.type='triangle';
+      o.frequency.setValueAtTime(300,now);
+      o.frequency.exponentialRampToValueAtTime(700,now+0.3);
+      g.gain.setValueAtTime(0.22,now);
+      g.gain.exponentialRampToValueAtTime(0.001,now+0.4);
+      o.start(now); o.stop(now+0.4);
+    } else if(type==='fail'){
+      o.type='sawtooth';
+      o.frequency.setValueAtTime(180,now);
+      o.frequency.exponentialRampToValueAtTime(90,now+0.25);
+      g.gain.setValueAtTime(0.2,now);
+      g.gain.exponentialRampToValueAtTime(0.001,now+0.3);
+      o.start(now); o.stop(now+0.3);
+    }
+  }catch(e){ /* audio no disponible */ }
+}
+
+function showAlert(msg, duration=2600){
+  document.querySelectorAll('#alertBanner').forEach(n=>n.remove());
+  const el=document.createElement('div');
+  el.id='alertBanner';
+  el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(()=>{ el.remove(); }, duration);
+}
+
+function escapeHtml(str){
+  const div=document.createElement('div');
+  div.textContent=str;
+  return div.innerHTML;
+}
+
+function showScreen(id){
+  ['setupScreen','eyesScreen','placeScreen','gameScreen'].forEach(s=>{
+    document.getElementById(s).classList.toggle('hidden', s!==id);
+  });
+}
+
+/* "Equipo X": evita "Equipo Equipo 1" cuando el nombre ya empieza con "Equipo" */
+function teamLabel(i){
+  const name = teams[i].name;
+  return /^equipo\b/i.test(name) ? name : 'Equipo '+name;
+}
+
+/* Construye el DOM de un tablero (etiquetas + cuadrícula + capa de piezas) */
+function buildBoardDOM(container){
+  const wrap=document.createElement('div');
+  wrap.className='board-wrap';
+
+  const corner=document.createElement('div');
+  wrap.appendChild(corner);
+
+  const colLabels=document.createElement('div');
+  colLabels.className='col-labels';
+  for(let c=1;c<=COLS;c++){ const s=document.createElement('span'); s.textContent=c; colLabels.appendChild(s); }
+  wrap.appendChild(colLabels);
+
+  const rowLabels=document.createElement('div');
+  rowLabels.className='row-labels';
+  for(let r=0;r<ROWS;r++){ const s=document.createElement('span'); s.textContent=String.fromCharCode(65+r); rowLabels.appendChild(s); }
+  wrap.appendChild(rowLabels);
+
+  const grid=document.createElement('div');
+  grid.className='grid';
+  const layer=document.createElement('div');
+  layer.className='layer';
+  grid.appendChild(layer);
+  wrap.appendChild(grid);
+
+  container.appendChild(wrap);
+  return {grid, layer};
+}
+
+/* =====================================================================
+   PANTALLA INICIAL
+   ===================================================================== */
+const pickBtns = [document.getElementById('pick0'), document.getElementById('pick1')];
+function inputName(i){
+  return document.getElementById('teamInput'+i).value.trim() || ('Equipo '+(i+1));
+}
+function refreshSetupLabels(){
+  for(let i=0;i<2;i++) pickBtns[i].textContent = '🏁 Empieza '+inputName(i);
+}
+refreshSetupLabels();
+[0,1].forEach(i=>{
+  document.getElementById('teamInput'+i).addEventListener('input', refreshSetupLabels);
+  pickBtns[i].addEventListener('click', ()=>{
+    firstTeam = i;
+    pickBtns.forEach((b,k)=>b.classList.toggle('selected', k===i));
+    document.getElementById('startBtn').disabled = false;
+  });
+});
+
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  if(firstTeam===null) return;
+  teams = [0,1].map(i=>({name:inputName(i), score:0}));
+  placements = [makePieces(), makePieces()];
+  placeStep = 0;
+  showEyes(0);
+});
+
+/* =====================================================================
+   PANTALLA "CIERRA LOS OJOS"
+   ===================================================================== */
+function showEyes(step){
+  placeStep = step;
+  document.getElementById('eyesMsg').textContent = teamLabel(PLACE_STEPS[step].close)+' cierra los ojos';
+  showScreen('eyesScreen');
+}
+document.getElementById('eyesNextBtn').addEventListener('click', ()=>{
+  showPlacement(placeStep);
+});
+
+/* =====================================================================
+   COLOCACIÓN DE BARCOS Y MINAS
+   ===================================================================== */
+function makePieces(){
+  const p=[];
+  SHIP_LENGTHS.forEach((len,i)=>p.push({id:'ship'+i,type:'ship',length:len,horizontal:true,placed:false,row:0,col:0}));
+  for(let i=0;i<MINE_COUNT;i++) p.push({id:'mine'+i,type:'mine',length:1,horizontal:true,placed:false,row:0,col:0});
+  return p;
+}
+
+function pieceCells(p, row=p.row, col=p.col, horizontal=p.horizontal){
+  const cells=[];
+  for(let k=0;k<p.length;k++){
+    cells.push({r: horizontal? row : row+k, c: horizontal? col+k : col});
+  }
+  return cells;
+}
+function occupiedSet(pieces, except){
+  const occ=new Set();
+  pieces.forEach(o=>{
+    if(o!==except && o.placed) pieceCells(o).forEach(({r,c})=>occ.add(r*COLS+c));
+  });
+  return occ;
+}
+function canPlace(pieces, p, row, col, horizontal){
+  const cells=pieceCells(p,row,col,horizontal);
+  for(const {r,c} of cells){ if(r<0||r>=ROWS||c<0||c>=COLS) return false; }
+  const occ=occupiedSet(pieces,p);
+  return cells.every(({r,c})=>!occ.has(r*COLS+c));
+}
+function touchesOther(pieces, p, row, col, horizontal){
+  const occ=occupiedSet(pieces,p);
+  for(const {r,c} of pieceCells(p,row,col,horizontal)){
+    for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+      const nr=r+dr, nc=c+dc;
+      if(nr<0||nr>=ROWS||nc<0||nc>=COLS) continue;
+      if(occ.has(nr*COLS+nc)) return true;
+    }
+  }
+  return false;
+}
+function randomPlaceOne(pieces, p, noTouch){
+  for(let i=0;i<300;i++){
+    const horizontal = p.type==='ship' ? Math.random()<0.5 : true;
+    const row=rand(ROWS), col=rand(COLS);
+    if(!canPlace(pieces,p,row,col,horizontal)) continue;
+    if(noTouch && touchesOther(pieces,p,row,col,horizontal)) continue;
+    p.horizontal=horizontal; p.row=row; p.col=col; p.placed=true;
+    return true;
+  }
+  return false;
+}
+function randomizePieces(pieces){
+  const order=[...pieces].sort((a,b)=>b.length-a.length);
+  for(let attempt=0; attempt<200; attempt++){
+    pieces.forEach(p=>{p.placed=false;});
+    let ok=true;
+    for(const p of order){
+      if(!randomPlaceOne(pieces,p,p.type==='ship')){ ok=false; break; }
+    }
+    if(ok) return;
+  }
+  // respaldo: permitir barcos pegados
+  for(let attempt=0; attempt<200; attempt++){
+    pieces.forEach(p=>{p.placed=false;});
+    let ok=true;
+    for(const p of order){
+      if(!randomPlaceOne(pieces,p,false)){ ok=false; break; }
+    }
+    if(ok) return;
+  }
+}
+
+let placeGrid=null, placeLayer=null;
+
+function showPlacement(step){
+  placeStep = step;
+  placeTeam = PLACE_STEPS[step].place;
+  document.getElementById('placeTitle').textContent = teamLabel(placeTeam)+': coloca tus barcos y minas';
+  const holder=document.getElementById('placeBoardHolder');
+  holder.innerHTML='';
+  const {grid,layer}=buildBoardDOM(holder);
+  placeGrid=grid; placeLayer=layer;
+  for(let i=0;i<ROWS*COLS;i++){
+    const c=document.createElement('div');
+    c.className='bcell pwater';
+    grid.insertBefore(c, layer);
+  }
+  grid.addEventListener('contextmenu', e=>e.preventDefault());
+  showScreen('placeScreen');
+  renderPlacement();
+}
+
+function renderPlacement(){
+  const pieces=placements[placeTeam];
+  placeLayer.innerHTML='';
+  pieces.filter(p=>p.placed).forEach(p=>{
+    const el=buildPieceEl(p);
+    el.classList.add('on-board','draggable');
+    el.style.left=`calc(var(--cell) * ${p.col})`;
+    el.style.top=`calc(var(--cell) * ${p.row})`;
+    placeLayer.appendChild(el);
+    attachPieceEvents(el,p);
+  });
+  const tray=document.getElementById('tray');
+  tray.innerHTML='';
+  const pending=pieces.filter(p=>!p.placed);
+  pending.forEach(p=>{
+    const el=buildPieceEl(p);
+    el.classList.add('draggable');
+    tray.appendChild(el);
+    attachPieceEvents(el,p);
+  });
+  if(pending.length===0){
+    tray.innerHTML='<span class="empty">✅ ¡Todas las piezas están en el tablero!</span>';
+  }
+  const placed=pieces.length-pending.length;
+  document.getElementById('placeCount').textContent =
+    'Colocadas: '+placed+'/'+pieces.length+'  (5 barcos + '+MINE_COUNT+' minas)';
+  document.getElementById('placeNextBtn').disabled = pending.length>0;
+}
+
+/* --- arrastre (clic derecho o izquierdo) y giro (doble clic) --- */
+let dragState=null;
+
+function attachPieceEvents(el,p){
+  el.addEventListener('contextmenu', e=>e.preventDefault());
+  el.addEventListener('dblclick', e=>{ e.preventDefault(); rotatePiece(p); });
+  el.addEventListener('pointerdown', e=>onPiecePointerDown(e,el,p));
+}
+
+function onPiecePointerDown(e,el,p){
+  if(e.button!==0 && e.button!==2) return;
+  const rect=el.getBoundingClientRect();
+  dragState={el,p,startX:e.clientX,startY:e.clientY,
+    offX:e.clientX-rect.left, offY:e.clientY-rect.top, moved:false, ghost:null};
+  window.addEventListener('pointermove', onDragMove);
+  window.addEventListener('pointerup', onDragEnd);
+  window.addEventListener('pointercancel', onDragEnd);
+}
+
+function dropTarget(d,e){
+  const gr=placeGrid.getBoundingClientRect();
+  const cell=gr.width/COLS;
+  const left=e.clientX-d.offX, top=e.clientY-d.offY;
+  return {
+    col:Math.round((left-gr.left)/cell),
+    row:Math.round((top-gr.top)/cell),
+    cell,
+    inside:(e.clientX>=gr.left-10 && e.clientX<=gr.right+10 && e.clientY>=gr.top-10 && e.clientY<=gr.bottom+10)
+  };
+}
+
+function updateGhost(d,e){
+  const t=dropTarget(d,e);
+  const pieces=placements[placeTeam];
+  const cells=pieceCells(d.p,t.row,t.col,d.p.horizontal);
+  const anyInside=cells.some(({r,c})=>r>=0&&r<ROWS&&c>=0&&c<COLS);
+  if(!anyInside){ if(d.ghost){ d.ghost.remove(); d.ghost=null; } return; }
+  if(!d.ghost){
+    d.ghost=document.createElement('div');
+    d.ghost.className='ghost';
+    placeLayer.appendChild(d.ghost);
+  }
+  const w=d.p.horizontal?d.p.length:1, h=d.p.horizontal?1:d.p.length;
+  d.ghost.style.left=`calc(var(--cell) * ${t.col})`;
+  d.ghost.style.top=`calc(var(--cell) * ${t.row})`;
+  d.ghost.style.width=`calc(var(--cell) * ${w})`;
+  d.ghost.style.height=`calc(var(--cell) * ${h})`;
+  d.ghost.classList.toggle('bad', !canPlace(pieces,d.p,t.row,t.col,d.p.horizontal));
+}
+
+function onDragMove(e){
+  const d=dragState; if(!d) return;
+  if(!d.moved){
+    if(Math.hypot(e.clientX-d.startX,e.clientY-d.startY)<5) return;
+    d.moved=true;
+    const rect=d.el.getBoundingClientRect();
+    d.el.classList.add('dragging');
+    d.el.style.left=rect.left+'px';
+    d.el.style.top=rect.top+'px';
+    document.getElementById('placeScreen').appendChild(d.el);
+  }
+  d.el.style.left=(e.clientX-d.offX)+'px';
+  d.el.style.top=(e.clientY-d.offY)+'px';
+  updateGhost(d,e);
+}
+
+function onDragEnd(e){
+  window.removeEventListener('pointermove', onDragMove);
+  window.removeEventListener('pointerup', onDragEnd);
+  window.removeEventListener('pointercancel', onDragEnd);
+  const d=dragState; dragState=null;
+  if(!d || !d.moved) return;          // fue un clic simple (no se re-renderiza para no perder el doble clic)
+  const pieces=placements[placeTeam];
+  const t=dropTarget(d,e);
+  if(d.ghost){ d.ghost.remove(); }
+  if(t.inside && canPlace(pieces,d.p,t.row,t.col,d.p.horizontal)){
+    d.p.placed=true; d.p.row=t.row; d.p.col=t.col;
+  } else if(!t.inside){
+    d.p.placed=false;                  // soltada fuera del tablero: vuelve a la bandeja
+  }
+  // si cayó dentro pero no cabe, conserva su posición anterior
+  d.el.remove();
+  renderPlacement();
+}
+
+function rotatePiece(p){
+  if(p.type!=='ship') return;
+  const pieces=placements[placeTeam];
+  const nh=!p.horizontal;
+  if(!p.placed){ p.horizontal=nh; renderPlacement(); return; }
+  let row=p.row, col=p.col;
+  if(canPlace(pieces,p,row,col,nh)){ p.horizontal=nh; renderPlacement(); return; }
+  // intentar ajustar para que quepa dentro del tablero
+  if(nh) col=Math.min(col, COLS-p.length); else row=Math.min(row, ROWS-p.length);
+  if(canPlace(pieces,p,row,col,nh)){ p.horizontal=nh; p.row=row; p.col=col; renderPlacement(); return; }
+  showAlert('⚠️ No cabe en esa posición', 1600);
+}
+
+document.getElementById('randomBtn').addEventListener('click', ()=>{
+  randomizePieces(placements[placeTeam]);
+  renderPlacement();
+});
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  placements[placeTeam].forEach(p=>{ p.placed=false; });
+  renderPlacement();
+});
+document.getElementById('placeNextBtn').addEventListener('click', ()=>{
+  if(!placements[placeTeam].every(p=>p.placed)) return;
+  if(placeStep===0) showEyes(1);
+  else startGame();
+});
+
+/* =====================================================================
+   INICIO DEL JUEGO
+   ===================================================================== */
+function buildBoardFromPieces(pieces){
+  const cells=Array.from({length:ROWS*COLS}, ()=>({type:'water',shipId:null,revealed:false,horizontal:true,posInShip:0}));
+  const ships=[];
+  pieces.forEach(p=>{
+    if(p.type==='mine'){
+      cells[p.row*COLS+p.col]={type:'mine',shipId:null,revealed:false,horizontal:true,posInShip:0};
+    } else {
+      const idxs=pieceCells(p).map(({r,c})=>r*COLS+c);
+      idxs.forEach((idx,pos)=>{
+        cells[idx]={type:'ship',shipId:p.id,revealed:false,horizontal:p.horizontal,posInShip:pos};
+      });
+      ships.push({id:p.id,type:'ship',length:p.length,horizontal:p.horizontal,row:p.row,col:p.col,cells:idxs,hits:0,sunk:false});
+    }
+  });
+  return {cells,ships};
+}
+
+function startGame(){
+  boards=[buildBoardFromPieces(placements[0]), buildBoardFromPieces(placements[1])];
+  usedQuestionIndices=new Set();
+  turnTeam=firstTeam; turnInProgress=false; canFire=false;
+  shooterTeam=null; targetBoard=null; paused=false; gameOver=false;
+
+  gameGrids=[]; gameLayers=[];
+  [0,1].forEach(i=>{
+    const col=document.getElementById('boardCol'+i);
+    col.innerHTML=`<div class="board-title">⚓ Barcos de ${escapeHtml(teams[i].name)}</div>
+                   <div class="board-sub" id="boardSub${i}"></div>`;
+    const {grid,layer}=buildBoardDOM(col);
+    gameGrids[i]=grid; gameLayers[i]=layer;
+    for(let idx=0;idx<ROWS*COLS;idx++){
+      const c=document.createElement('div');
+      c.className='bcell';
+      c.dataset.idx=idx;
+      c.addEventListener('click', ()=>fireShot(i,idx));
+      grid.insertBefore(c, layer);
+    }
+  });
+  showScreen('gameScreen');
+  refreshAll();
+}
+
+/* =====================================================================
+   INTERFAZ DEL JUEGO
+   ===================================================================== */
+function refreshAll(){
+  [0,1].forEach(i=>{
+    const card=document.getElementById('scoreCard'+i);
+    card.querySelector('.sname').textContent=teams[i].name;
+    card.querySelector('.sscore').textContent=teams[i].score+' pts';
+    card.classList.toggle('active', !gameOver && turnTeam===i);
+  });
+  const label=document.getElementById('turnLabel');
+  if(canFire){
+    label.innerHTML='🎯 <span>'+escapeHtml(teams[shooterTeam].name)+'</span> dispara al tablero de '+escapeHtml(teams[targetBoard].name);
+  } else {
+    label.innerHTML='Turno de: <span>'+escapeHtml(teams[turnTeam].name)+'</span>';
+  }
+  document.getElementById('qCounter').textContent='Preguntas usadas: '+usedQuestionIndices.size+'/'+TOTAL_QUESTIONS;
+  document.getElementById('answerBtn').disabled = (turnInProgress||canFire||gameOver||paused);
+
+  [0,1].forEach(i=>{
+    const col=document.getElementById('boardCol'+i);
+    const isTarget = canFire && targetBoard===i;
+    col.classList.toggle('target', isTarget);
+    document.getElementById('boardSub'+i).textContent = isTarget ? '🎯 ¡Elige una casilla para disparar!' : '';
+    gameGrids[i].querySelectorAll('.bcell').forEach(cellEl=>{
+      const idx=Number(cellEl.dataset.idx);
+      cellEl.classList.toggle('fireable', isTarget && !boards[i].cells[idx].revealed);
+    });
+  });
+}
+
+function updateCell(bi, idx){
+  const cellEl=gameGrids[bi].querySelector(`.bcell[data-idx='${idx}']`);
+  const cell=boards[bi].cells[idx];
+  cellEl.classList.remove('mine-cell');
+  cellEl.innerHTML='';
+  if(!cell.revealed) return;
+  if(cell.type==='water') cellEl.innerHTML=waterMarkup();
+  else if(cell.type==='mine'){ cellEl.classList.add('mine-cell'); cellEl.innerHTML=mineMarkup(); }
+  else cellEl.innerHTML=hitMarkup();          // barco dañado: solo marca oscura
+}
+
+function revealSunkShip(bi, ship){
+  const el=buildPieceEl(ship);
+  el.classList.add('sunk');
+  el.style.left=`calc(var(--cell) * ${ship.col})`;
+  el.style.top=`calc(var(--cell) * ${ship.row})`;
+  gameLayers[bi].appendChild(el);
+}
+
+/* =====================================================================
+   DISPARO
+   ===================================================================== */
+function fireShot(bi, idx){
+  if(!canFire || gameOver || paused || bi!==targetBoard) return;
+  const board=boards[bi];
+  const cell=board.cells[idx];
+  if(cell.revealed) return;
+
+  cell.revealed=true;
+  const shooter=shooterTeam;
+  canFire=false; shooterTeam=null; targetBoard=null;
+  updateCell(bi,idx);
+
+  let continueTurn=false;
+  let allSunk=false;
+
+  if(cell.type==='mine'){
+    teams[shooter].score += POINTS.mine;
+    gameGrids[bi].querySelector(`.bcell[data-idx='${idx}']`).classList.add('shake');
+    playSound('mine');
+    showAlert('💣 ¡MINA! '+teams[shooter].name+' pierde '+Math.abs(POINTS.mine)+' puntos');
+  } else if(cell.type==='ship'){
+    teams[shooter].score += POINTS.hit;
+    playSound('hit');
+    continueTurn=true;
+    const ship=board.ships.find(s=>s.id===cell.shipId);
+    ship.hits++;
+    if(ship.hits===ship.length){
+      ship.sunk=true;
+      revealSunkShip(bi,ship);
+      playSound('sunk');
+      showAlert('🚢 ¡NAVE HUNDIDA! +'+POINTS.hit+' pts para '+teams[shooter].name);
+      allSunk=board.ships.every(s=>s.sunk);
+    } else {
+      showAlert('💥 ¡Impacto! +'+POINTS.hit+' pts para '+teams[shooter].name);
+    }
+  } else {
+    showAlert('🌊 Agua. Sin puntos. Pasa el turno.');
+  }
+
+  turnTeam = continueTurn ? shooter : other(shooter);
+
+  if(allSunk){
+    refreshAll();
+    triggerVictory('¡Todos los barcos de '+teams[bi].name+' fueron hundidos!');
+    return;
+  }
+  refreshAll();
+  checkQuestionsExhausted();
+}
+
+function checkQuestionsExhausted(){
+  if(gameOver) return;
+  if(usedQuestionIndices.size>=TOTAL_QUESTIONS){
+    triggerVictory('¡Se completaron las '+TOTAL_QUESTIONS+' preguntas del banco!');
+  }
+}
+
+/* =====================================================================
+   PREGUNTAS
+   ===================================================================== */
+document.getElementById('answerBtn').addEventListener('click', ()=>{
+  if(turnInProgress||canFire||gameOver||paused) return;
+  turnInProgress=true;
+  originalTurnTeam=turnTeam;
+  answeringTeam=turnTeam;
+  isSteal=false;
+  pickNewQuestion();
+  openQuestionModal();
+  refreshAll();
+});
+
+function pickNewQuestion(){
+  let available=QUESTION_BANK.map((q,i)=>i).filter(i=>!usedQuestionIndices.has(i));
+  if(available.length===0) available=QUESTION_BANK.map((q,i)=>i);
+  const bankIndex=available[rand(available.length)];
+  const q=QUESTION_BANK[bankIndex];
+  const order=[0,1,2,3];
+  shuffleArray(order);
+  currentQuestion={
+    bankIndex, text:q.q,
+    options:order.map(i=>q.options[i]),
+    correctIdx:order.indexOf(q.correct),
+    eliminated:[]
+  };
+}
+
+function openQuestionModal(){
+  document.getElementById('questionModal').classList.remove('hidden');
+  document.getElementById('questionTeamLabel').textContent =
+    (isSteal?'🔥 ROBO — ':'')+'Responde: '+teams[answeringTeam].name;
+  renderQuestionContent();
+  startTimer();
+}
+
+function renderQuestionContent(){
+  document.getElementById('questionText').textContent=currentQuestion.text;
+  const cont=document.getElementById('optionsContainer');
+  cont.innerHTML='';
+  currentQuestion.options.forEach((opt,i)=>{
+    const btn=document.createElement('button');
+    const elim=currentQuestion.eliminated.includes(i);
+    btn.className='option-btn'+(elim?' eliminated':'');
+    btn.textContent=opt;
+    if(!elim) btn.addEventListener('click', ()=>selectOption(i));
+    cont.appendChild(btn);
+  });
+}
+
+function startTimer(){
+  stopTimer();
+  timeLeft=QUESTION_TIME;
+  updateTimerDisplay();
+  runTimerLoop();
+}
+function resumeTimer(){
+  stopTimer();
+  updateTimerDisplay();
+  runTimerLoop();
+}
+function runTimerLoop(){
+  timerActive=true;
+  timerInterval=setInterval(()=>{
+    timeLeft--;
+    updateTimerDisplay();
+    if(timeLeft<=0){
+      stopTimer();
+      handleTimeout();
+    }
+  },1000);
+}
+function stopTimer(){ clearInterval(timerInterval); timerActive=false; }
+
+function updateTimerDisplay(){
+  const pct=Math.max(0,(timeLeft/QUESTION_TIME)*100);
+  const fill=document.getElementById('timerFill');
+  fill.style.width=pct+'%';
+  fill.style.background = timeLeft<=5 ? 'var(--red)' : (timeLeft<=12 ? 'var(--yellow)' : 'var(--emerald)');
+  document.getElementById('timerNumber').textContent=timeLeft+'s';
+}
+
+function disableOptionButtons(){
+  document.querySelectorAll('.option-btn').forEach(b=>b.style.pointerEvents='none');
+}
+
+function selectOption(i){
+  if(paused) return;
+  stopTimer();
+  disableOptionButtons();
+  const btns=document.querySelectorAll('.option-btn');
+  if(i===currentQuestion.correctIdx){
+    btns[i].classList.add('correct-flash');
+    playSound('success');
+    usedQuestionIndices.add(currentQuestion.bankIndex);
+    teams[answeringTeam].score += POINTS.question;
+    refreshAll();
+    setTimeout(()=>{
+      closeQuestionModal();
+      shooterTeam=answeringTeam;
+      targetBoard=other(answeringTeam);
+      canFire=true;
+      turnInProgress=false;
+      refreshAll();
+      showAlert('✅ ¡Correcto! +'+POINTS.question+' pts para '+teams[shooterTeam].name+'. ¡Dispara!');
+    },850);
+  } else {
+    btns[i].classList.add('wrong-flash');
+    playSound('fail');
+    setTimeout(()=>{
+      closeQuestionModal();
+      handleFailure(i);
+    },700);
+  }
+}
+
+function handleTimeout(){
+  disableOptionButtons();
+  playSound('fail');
+  closeQuestionModal();
+  handleFailure(undefined);
+}
+
+function closeQuestionModal(){
+  document.getElementById('questionModal').classList.add('hidden');
+}
+
+function handleFailure(chosenIdx){
+  if(!isSteal){
+    // responde el otro equipo (robo): misma pregunta
+    isSteal=true;
+    if(chosenIdx!==undefined) currentQuestion.eliminated.push(chosenIdx);
+    answeringTeam=other(originalTurnTeam);
+    showAlert('❌ '+teams[originalTurnTeam].name+' falló. ¡Responde '+teams[answeringTeam].name+'!', 2200);
+    openQuestionModal();
+  } else {
+    // ambos fallaron: el turno pasa al otro equipo
+    usedQuestionIndices.add(currentQuestion.bankIndex);
+    showAlert('❌ Nadie acertó. La respuesta correcta era: '+currentQuestion.options[currentQuestion.correctIdx], 3800);
+    turnInProgress=false;
+    turnTeam=other(originalTurnTeam);
+    refreshAll();
+    checkQuestionsExhausted();
+  }
+}
+
+/* =====================================================================
+   PAUSA
+   ===================================================================== */
+document.getElementById('pauseBtn').addEventListener('click', ()=>{
+  if(gameOver || paused) return;
+  paused=true;
+  timerWasRunning=timerActive;
+  if(timerActive) stopTimer();
+  document.getElementById('pauseOverlay').classList.remove('hidden');
+  refreshAll();
+});
+document.getElementById('resumeBtn').addEventListener('click', ()=>{
+  paused=false;
+  document.getElementById('pauseOverlay').classList.add('hidden');
+  if(timerWasRunning){ timerWasRunning=false; resumeTimer(); }
+  refreshAll();
+});
+
+/* =====================================================================
+   VICTORIA
+   ===================================================================== */
+function triggerVictory(reasonText){
+  if(gameOver) return;
+  gameOver=true;
+  stopTimer();
+  ['questionModal','pauseOverlay'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  canFire=false; turnInProgress=false;
+
+  document.getElementById('endReason').textContent=reasonText||'';
+
+  const a=teams[0], b=teams[1];
+  let title;
+  if(a.score===b.score) title='🤝 ¡Empate a '+a.score+' pts!';
+  else {
+    const w=a.score>b.score?a:b;
+    title='🏆 '+w.name+' — '+w.score+' pts';
+  }
+  document.getElementById('winnerName').textContent=title;
+
+  const sorted=[...teams].sort((x,y)=>y.score-x.score);
+  const podium=document.getElementById('podium');
+  podium.innerHTML='';
+  [1,0].forEach((pos,i)=>{
+    const t=sorted[pos];
+    const step=document.createElement('div');
+    step.className='podium-step';
+    step.innerHTML=`
+      <div class="pname">${escapeHtml(t.name)}</div>
+      <div class="pscore">${t.score} pts</div>
+      <div class="podium-block" style="height:${pos===0?150:110}px;">${a.score===b.score?'🤝':(pos+1)+'º'}</div>`;
+    podium.appendChild(step);
+  });
+
+  launchConfetti();
+  document.getElementById('victoryScreen').classList.remove('hidden');
+}
+
+function launchConfetti(){
+  const colors=['#2ECC71','#F1C40F','#E74C3C','#F5F7FA'];
+  for(let i=0;i<40;i++){
+    const piece=document.createElement('div');
+    piece.className='confetti';
+    piece.style.left=Math.random()*100+'vw';
+    piece.style.background=colors[rand(colors.length)];
+    piece.style.animationDuration=(2.5+Math.random()*2)+'s';
+    piece.style.animationDelay=(Math.random()*1.5)+'s';
+    document.getElementById('victoryScreen').appendChild(piece);
+    setTimeout(()=>piece.remove(), 6000);
+  }
+}
+
+document.getElementById('newGameBtn').addEventListener('click', ()=>{ location.reload(); });
+</script>
+</body></html>
